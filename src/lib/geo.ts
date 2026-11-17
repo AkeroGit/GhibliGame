@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { noise3 } from './noise';
 
 /** Geometry helpers for hand-modelled props. Everything is merged and vertex-coloured. */
@@ -42,7 +42,11 @@ export function place(geo: THREE.BufferGeometry, x: number, y: number, z: number
 
 /** Lumpy blob (foliage clump, cloud puff, boulder). Normals are smoothed outwards so light wraps softly. */
 export function blob(radius: number, detail = 2, lump = 0.25, seed = 0, squashY = 1): THREE.BufferGeometry {
-  const g = new THREE.IcosahedronGeometry(radius, detail);
+  // Icosahedron is non-indexed (flat normals); weld it so lighting wraps smoothly.
+  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(radius, detail);
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g);
   const p = g.attributes.position as THREE.BufferAttribute;
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {

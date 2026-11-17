@@ -51,18 +51,31 @@ function distToPolyline(poly: Float32Array, x: number, z: number): number {
   return Math.sqrt(best);
 }
 
-/** Unflattened landform. */
+/** Unflattened landform: a proud hill crowned by the tea house, sheer cliffs to the west,
+ *  a long grassy shoulder rolling down to a sandy cove in the south-east. */
 function landform(x: number, z: number): number {
-  const r = Math.hypot(x, z * 1.08);
-  const n = fbm2(x * 0.022 + 3.1, z * 0.022 - 7.4, 4) - 0.5;
-  const soft = 16.5 * Math.exp(-((r / 47) ** 2)) - 3.2 + n * 3.2 + (fbm2(x * 0.09, z * 0.09, 3) - 0.5) * 0.7;
-  // Sea cliff on the west side.
-  const west = smoothstep(0.1, 0.7, -x / (r + 1e-3));
-  const edge = 43 + n * 7;
-  const top = 16.5 * Math.exp(-((r / 62) ** 2)) - 0.6 + n * 2.2;
-  const cliffT = smoothstep(edge + 2.2, edge - 0.6, r);
-  const cliff = top * cliffT + (-6 + n * 2) * (1 - cliffT);
-  return lerp(soft, cliff, west);
+  const n = fbm2(x * 0.02 + 3.1, z * 0.02 - 7.4, 4) - 0.5;
+  const nf = fbm2(x * 0.08, z * 0.08, 3) - 0.5;
+  // crown of the hill (house plateau sits on top)
+  const d1 = Math.hypot(x - 0, (z + 6) * 1.1);
+  const crown = 19 * Math.exp(-((d1 / 33) ** 2));
+  // eastern forest ridge
+  const d2 = Math.hypot(x - 34, z + 24);
+  const ridge = 8 * Math.exp(-((d2 / 20) ** 2));
+  // lowland shelf that reaches the cove
+  const r = Math.hypot(x - 6, z - 6);
+  const shelfEdge = 76 + n * 16;
+  const shelf = 4.2 * (1 - smoothstep(38, shelfEdge, r));
+  let h = Math.max(crown, ridge * 0.9 + crown * 0.4) + shelf - 2.2 + n * 3.2 + nf * 0.6;
+  h -= 7 * smoothstep(shelfEdge - 6, shelfEdge + 18, r); // sea floor
+  // Western and northern cliffs: keep the plateau height, then drop straight into the sea.
+  const ro = Math.hypot(x, z * 1.05);
+  const west = smoothstep(0.05, 0.6, (-x * 0.9 - z * 0.45) / (ro + 1e-3));
+  const edge = 44 + n * 12 + nf * 3;
+  const cliffT = smoothstep(edge + 1.8, edge - 0.8, ro);
+  const cliffTop = Math.max(h, 6.5 + n * 3);
+  const cliff = cliffTop * cliffT + (-8 + n * 2) * (1 - cliffT);
+  return lerp(h, cliff, west);
 }
 
 // ---- baked grids ----

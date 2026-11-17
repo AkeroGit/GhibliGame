@@ -30,8 +30,8 @@ export function createSea(heightAt: (x: number, z: number) => number) {
     uMoonDirW: { value: new THREE.Vector3() },
     uLightCol: { value: new THREE.Color() },
     uFogColor: { value: new THREE.Color() },
-    uFogNear: { value: 60 },
-    uFogFar: { value: 520 },
+    uFogNear: { value: 140 },
+    uFogFar: { value: 1300 },
   };
 
   const mat = new THREE.ShaderMaterial({
@@ -97,7 +97,7 @@ export function createSea(heightAt: (x: number, z: number) => number) {
       }`,
   });
 
-  const geo = new THREE.PlaneGeometry(1600, 1600, 160, 160);
+  const geo = new THREE.PlaneGeometry(4000, 4000, 200, 200);
   geo.rotateX(-Math.PI / 2);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.y = -0.05;

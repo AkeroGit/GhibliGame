@@ -39,10 +39,10 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const fog = new THREE.Fog(0xcfe6f5, 70, 520);
+const fog = new THREE.Fog(0xcfe6f5, 140, 1300);
 scene.fog = fog;
 
-const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.3, 2000);
+const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.3, 3000);
 
 // --- lights ---
 const hemi = new THREE.HemisphereLight(0x93b8ec, 0x5d7048, 0.9);
@@ -59,6 +59,7 @@ scene.add(sun, sun.target);
 
 // --- world ---
 const sky = createSky();
+sky.mesh.scale.setScalar(2.4);
 scene.add(sky.mesh);
 const clouds = createClouds();
 scene.add(clouds.group);

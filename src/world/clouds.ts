@@ -8,7 +8,7 @@ import type { DayState } from './daylight';
  * shaded with a 3-band ramp (sunlit cream -> mid -> cool blue belly) in a custom shader.
  * Clouds sit in a ring far out over the sea and drift slowly with the wind.
  */
-export function createClouds(count = 14) {
+export function createClouds(count = 16) {
   const rand = mulberry32(99);
   const uniforms = {
     uSunDir: { value: new THREE.Vector3() },
@@ -88,10 +88,10 @@ export function createClouds(count = 14) {
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, mat);
     const angle = (i / count) * Math.PI * 2 + rand() * 0.3;
-    const dist = 420 + rand() * 220;
-    mesh.position.set(Math.cos(angle) * dist, 30 + rand() * 40, Math.sin(angle) * dist);
+    const dist = 620 + rand() * 420;
+    mesh.position.set(Math.cos(angle) * dist, 40 + rand() * 90, Math.sin(angle) * dist);
     mesh.rotation.y = rand() * Math.PI;
-    mesh.scale.setScalar(1 + rand() * 0.6);
+    mesh.scale.setScalar(1.3 + rand() * 1.1);
     group.add(mesh);
     clouds.push({ mesh, angle, dist, speed: (0.6 + rand() * 0.6) * 0.0012 });
   }
