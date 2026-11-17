@@ -33,6 +33,7 @@ const shots = [
   ['porch', 'day=0.6&cam=porch'],
   ['corner', 'day=0.45&cam=corner'],
   ['cornerlow', 'day=0.45&cam=cornerlow'],
+  ['tip', 'day=0.45&cam=tip'],
 ].filter(([n]) => !only || only.split(',').includes(n));
 
 for (const [name, q] of shots) {

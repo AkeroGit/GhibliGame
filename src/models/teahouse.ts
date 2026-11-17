@@ -151,7 +151,7 @@ export function createTeaHouse(): TeaHouse {
   const hz = (v: number) => RD * (1 - v);
   const Y = (v: number) => eaveY + (ridgeY - eaveY) * Math.pow(v, 1.35);
   // corner sweep: tips curl up, and the hip line still rises monotonically to the ridge
-  const lift = (u: number, v: number) => Math.pow(Math.abs(u), 4) * Math.pow(1 - v, 2.2) * 1.1;
+  const lift = (u: number, v: number) => Math.pow(Math.abs(u), 2.6) * Math.pow(1 - v, 2.0) * 0.95;
   const P = (f: Face, u: number, v: number, off = 0) => {
     const y = Y(v) + lift(u, v) + off;
     switch (f) {
@@ -191,12 +191,12 @@ export function createTeaHouse(): TeaHouse {
   for (const f of ['front', 'back'] as const) {
     const flip = outward(f);
     roofParts.push(paint(surface(f, 0, 1, 0, flip), COL.roof));
-    roofDark.push(paint(surface(f, 0, 1, -0.14, !flip), COL.timber)); // underside
+    roofDark.push(paint(surface(f, 0, 1, -0.1, !flip), '#3b2a22')); // underside (dark rafters)
   }
   for (const f of ['left', 'right'] as const) {
     const flip = outward(f);
     roofParts.push(paint(surface(f, 0, GABLE, 0, flip), COL.roof));
-    roofDark.push(paint(surface(f, 0, GABLE, -0.14, !flip), COL.timber));
+    roofDark.push(paint(surface(f, 0, GABLE, -0.1, !flip), '#3b2a22'));
     // vertical gable: warm timber with vertical slats
     const gable = surface(f, GABLE, 1, -0.05, outward(f, 0.75));
     solid.push(paint(gable, COL.timberLight));
@@ -235,8 +235,8 @@ export function createTeaHouse(): TeaHouse {
   // eave fascia: a closed loop around the whole roof edge
   {
     const loop: THREE.Vector3[] = [];
-    for (const f of ['front', 'right', 'back', 'left'] as const) for (let i = 0; i < 16; i++) loop.push(P(f, (i / 16) * 2 - 1, 0, -0.02));
-    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(loop, true, 'centripetal'), 128, 0.1, 5, true);
+    for (const f of ['front', 'right', 'back', 'left'] as const) for (let i = 0; i < 24; i++) loop.push(P(f, (i / 24) * 2 - 1, 0, -0.05));
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(loop, true, 'chordal'), 256, 0.11, 6, true);
     roofDark.push(paint(g, COL.roofRidge));
   }
   // main ridge + upturned end ornaments

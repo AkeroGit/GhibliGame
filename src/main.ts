@@ -132,21 +132,26 @@ import('./lib/geo').then(({ blob, paint, merge, place }) => {
 // chimney smoke: soft billboards rising and leaning with the wind
 const smokeTex = (() => {
   const c = document.createElement('canvas');
-  c.width = c.height = 64;
+  c.width = c.height = 128;
   const g = c.getContext('2d')!;
-  const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-  grd.addColorStop(0, 'rgba(255,255,255,0.9)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
+  // a soft cluster of overlapping puffs reads as smoke, a single radial blob reads as a light streak
+  const puffs: [number, number, number][] = [[64, 70, 34], [44, 58, 24], [84, 56, 26], [60, 42, 22], [78, 80, 20], [46, 82, 18]];
+  for (const [x, y, r] of puffs) {
+    const grd = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,0.55)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 128, 128);
+  }
   return new THREE.CanvasTexture(c);
 })();
 const smoke: THREE.Sprite[] = [];
 const smokeOrigin = house.group.localToWorld(house.chimneyTop.clone());
-for (let i = 0; i < 18; i++) {
+for (let i = 0; i < 9; i++) {
   const m = new THREE.SpriteMaterial({ map: smokeTex, transparent: true, depthWrite: false, opacity: 0.5 });
   const s = new THREE.Sprite(m);
-  s.userData.phase = i / 18;
+  s.userData.phase = i / 9;
+  s.userData.jit = Math.random() * 2 - 1;
   smoke.push(s);
   scene.add(s);
 }
@@ -175,6 +180,7 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   porch: [new THREE.Vector3(HOUSE.x + 1.5, HOUSE.y + 1.7, HOUSE.z + 12.5), new THREE.Vector3(HOUSE.x + 0.5, HOUSE.y + 1.6, HOUSE.z + 2)],
   corner: [house.group.localToWorld(new THREE.Vector3(10.5, 6.2, 9.5)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
   cornerlow: [house.group.localToWorld(new THREE.Vector3(9.5, 2.2, 9.0)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
+  tip: [house.group.localToWorld(new THREE.Vector3(5.2, 3.6, 11.5)), house.group.localToWorld(new THREE.Vector3(5.6, 4.1, 4.6))],
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
@@ -239,10 +245,11 @@ function frame(dt: number) {
   // smoke
   for (const sp of smoke) {
     const t = (sp.userData.phase + clock * 0.06) % 1;
-    sp.position.copy(smokeOrigin).add(tmp.set(t * 5 * wind + Math.sin(t * 9 + clock) * 0.3, t * 7, t * 1.5));
-    const sz = 0.5 + t * 2.2;
+    sp.position.copy(smokeOrigin).add(tmp.set(t * 3.5 * wind + Math.sin(t * 6 + clock * 0.7) * 0.5 + sp.userData.jit * t * 0.8, t * 6, t * 1.2 + sp.userData.jit * 0.3));
+    const sz = 0.9 + t * 3.6;
     sp.scale.set(sz, sz, 1);
-    (sp.material as THREE.SpriteMaterial).opacity = Math.sin(t * Math.PI) * 0.28 * (1 - t * 0.5);
+    (sp.material as THREE.SpriteMaterial).opacity = Math.min(1, t * 6) * (1 - t) * 0.55;
+    (sp.material as THREE.SpriteMaterial).rotation = sp.userData.jit * 2 + t * 0.8;
     (sp.material as THREE.SpriteMaterial).color.copy(s.cloudLit).lerp(s.ambientSky, 0.3);
   }
 

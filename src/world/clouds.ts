@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { blob, merge, place } from '../lib/geo';
+import { blob, merge, place, sphereNormals } from '../lib/geo';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../lib/noise';
 import type { DayState } from './daylight';
@@ -70,7 +70,7 @@ export function createClouds(count = 16) {
       const rad = (1 - t * 0.7) * size * 0.75 * rand();
       const r = size * (0.32 + rand() * 0.22) * (1 - t * 0.35);
       const y = t * size * tall * 1.1 + r * 0.3;
-      const g = blob(r, 2, 0.18, rand() * 100, 0.9);
+      const g = blob(r, 3, 0.16, rand() * 100, 0.9);
       place(g, Math.cos(ang) * rad, y, Math.sin(ang) * rad * 0.6);
       parts.push(g);
     }
@@ -87,6 +87,7 @@ export function createClouds(count = 16) {
     }
     geo.setAttribute('aH', new THREE.BufferAttribute(hAttr, 1));
     geo.computeVertexNormals();
+    sphereNormals(geo, new THREE.Vector3(0, maxY * 0.35, 0), 0.45);
     const mesh = new THREE.Mesh(geo, mat);
     const angle = (i / count) * Math.PI * 2 + rand() * 0.3;
     const dist = 900 + rand() * 600;
