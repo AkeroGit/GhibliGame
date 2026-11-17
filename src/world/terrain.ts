@@ -70,7 +70,7 @@ function landform(x: number, z: number): number {
   h -= 7 * smoothstep(shelfEdge - 6, shelfEdge + 18, r); // sea floor
   // Western and northern cliffs: keep the plateau height, then drop straight into the sea.
   const ro = Math.hypot(x, z * 1.05);
-  const west = smoothstep(0.05, 0.6, (-x * 0.9 - z * 0.45) / (ro + 1e-3));
+  const west = 1 - smoothstep(0.05, 0.55, (x * 0.6 + z * 0.8) / (ro + 1e-3)); // all but the SE cove
   const edge = 44 + n * 12 + nf * 3;
   const cliffT = smoothstep(edge + 1.8, edge - 0.8, ro);
   const cliffTop = Math.max(h, 6.5 + n * 3);

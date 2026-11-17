@@ -36,7 +36,7 @@ const GradeShader = {
       vec3 cool = vec3(0.92, 0.97, 1.08), warm = vec3(1.05, 1.0, 0.93);
       c *= mix(cool, warm, smoothstep(0.15, 0.75, lum));
       // lift the blacks slightly (no pure black in watercolour)
-      c = c * 0.96 + vec3(0.018, 0.02, 0.03);
+      c = c * 0.97 + vec3(0.012, 0.014, 0.022);
       // paper: coarse fibres + fine grain
       vec2 px = vUv * uRes;
       float fib = (n(px * 0.012) - 0.5) * 0.035 + (n(px * 0.08 + 3.0) - 0.5) * 0.02;
@@ -70,8 +70,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     update(time: number, night: number) {
       grade.uniforms.uTime.value = time;
       grade.uniforms.uNight.value = night;
-      bloom.strength = 0.3 + night * 0.45;
-      bloom.threshold = 0.82 - night * 0.3;
+      bloom.strength = 0.22 + night * 0.5;
+      bloom.threshold = 0.93 - night * 0.4;
     },
   };
 }

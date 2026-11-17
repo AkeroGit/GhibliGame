@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { blob, merge, place } from '../lib/geo';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../lib/noise';
 import type { DayState } from './daylight';
 
@@ -59,9 +60,9 @@ export function createClouds(count = 16) {
   const clouds: { mesh: THREE.Mesh; angle: number; dist: number; speed: number }[] = [];
   for (let i = 0; i < count; i++) {
     const parts: THREE.BufferGeometry[] = [];
-    const size = 26 + rand() * 30;
-    const tall = 0.6 + rand() * 0.8;
-    const puffs = 14 + Math.floor(rand() * 10);
+    const size = 60 + rand() * 70;
+    const tall = 0.9 + rand() * 0.9;
+    const puffs = 18 + Math.floor(rand() * 12);
     for (let k = 0; k < puffs; k++) {
       // stack puffs into a cauliflower tower: wider at the base, rising in the middle
       const t = k / puffs;
@@ -73,7 +74,7 @@ export function createClouds(count = 16) {
       place(g, Math.cos(ang) * rad, y, Math.sin(ang) * rad * 0.6);
       parts.push(g);
     }
-    const geo = merge(parts);
+    const geo = mergeVertices(merge(parts));
     // flatten the bottom and store normalised height for shading
     const p = geo.attributes.position as THREE.BufferAttribute;
     let maxY = 0;
@@ -88,10 +89,10 @@ export function createClouds(count = 16) {
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, mat);
     const angle = (i / count) * Math.PI * 2 + rand() * 0.3;
-    const dist = 620 + rand() * 420;
-    mesh.position.set(Math.cos(angle) * dist, 40 + rand() * 90, Math.sin(angle) * dist);
+    const dist = 900 + rand() * 600;
+    mesh.position.set(Math.cos(angle) * dist, 25 + rand() * 60, Math.sin(angle) * dist);
     mesh.rotation.y = rand() * Math.PI;
-    mesh.scale.setScalar(1.3 + rand() * 1.1);
+    mesh.scale.setScalar(1.6 + rand() * 1.4);
     group.add(mesh);
     clouds.push({ mesh, angle, dist, speed: (0.6 + rand() * 0.6) * 0.0012 });
   }

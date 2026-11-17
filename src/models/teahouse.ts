@@ -134,45 +134,47 @@ export function createTeaHouse(): TeaHouse {
   noren.push(paint(place(new THREE.CircleGeometry(0.17, 14), 0.42, FLOOR + WALL - 0.5, D / 2 + 0.13), COL.norenMark));
   solid.push(paint(place(new THREE.CylinderGeometry(0.03, 0.03, 1.9, 6), 0, FLOOR + WALL - 0.12, D / 2 + 0.12, 0, 0, Math.PI / 2), COL.timberLight));
 
-  // --- irimoya roof: hip lower section + gable upper, curved eaves, tile rows ---
+  // --- irimoya roof ---
+  // One parametric surface P(face, u, v) shared by every roof part, so slopes, ridge caps,
+  // battens and fascia meet exactly (no seams). Lower half = hipped slopes on all four sides,
+  // upper half = vertical gables on the short sides (the irimoya silhouette).
   const roofParts: THREE.BufferGeometry[] = [];
   const roofDark: THREE.BufferGeometry[] = [];
   const eaveY = FLOOR + WALL + 0.15;
   const OH = 1.55; // overhang
   const RW = W / 2 + OH + 0.9, RD = D / 2 + OH + 0.4; // include veranda
-  const ridgeY = eaveY + 2.6;
-  const ridgeHalf = RW * 0.42;
-  const curve = (t: number) => Math.pow(t, 1.6); // concave profile -> upturned eaves
-  // Build each roof slope as a grid surface.
-  const slope = (side: 'front' | 'back' | 'left' | 'right') => {
-    const segU = 16, segV = 10;
+  const ridgeY = eaveY + 3.5;
+  const ridgeHalf = RW * 0.46;
+  const GABLE = 0.5; // v where the gable starts
+  type Face = 'front' | 'back' | 'left' | 'right';
+  const hx = (v: number) => RW + (ridgeHalf - RW) * Math.min(1, v / GABLE) ** 0.9;
+  const hz = (v: number) => RD * (1 - v);
+  const Y = (v: number) => eaveY + (ridgeY - eaveY) * Math.pow(v, 1.35);
+  // corner sweep: tips curl up, and the hip line still rises monotonically to the ridge
+  const lift = (u: number, v: number) => Math.pow(Math.abs(u), 4) * Math.pow(1 - v, 2.2) * 1.1;
+  const P = (f: Face, u: number, v: number, off = 0) => {
+    const y = Y(v) + lift(u, v) + off;
+    switch (f) {
+      case 'front': return new THREE.Vector3(u * hx(v), y, hz(v) + off * 0.3);
+      case 'back': return new THREE.Vector3(-u * hx(v), y, -hz(v) - off * 0.3);
+      case 'right': return new THREE.Vector3(hx(v) + off * 0.3, y, -u * hz(v));
+      case 'left': return new THREE.Vector3(-hx(v) - off * 0.3, y, u * hz(v));
+    }
+  };
+  const surface = (f: Face, v0: number, v1: number, off = 0, flip = false) => {
+    const segU = 18, segV = 10;
     const pos: number[] = [];
     const idx: number[] = [];
-    for (let v = 0; v <= segV; v++) {
-      const tv = v / segV; // 0 eave -> 1 ridge
-      const y = eaveY + (ridgeY - eaveY) * curve(tv) + 0.0;
-      for (let u = 0; u <= segU; u++) {
-        const tu = u / segU * 2 - 1;
-        let x = 0, z = 0;
-        if (side === 'front' || side === 'back') {
-          const half = RW + (ridgeHalf - RW) * tv;
-          x = tu * half;
-          z = (side === 'front' ? 1 : -1) * (RD * (1 - tv) + 0.02);
-          // corner lift: eave corners curl up
-          const corner = Math.pow(Math.abs(tu), 6) * (1 - tv);
-          pos.push(x, y + corner * 0.75, z + 0.0);
-        } else {
-          const half = RD * (1 - tv);
-          z = tu * half;
-          x = (side === 'right' ? 1 : -1) * (RW + (ridgeHalf - RW) * tv);
-          const corner = Math.pow(Math.abs(tu), 6) * (1 - tv);
-          pos.push(x, y + corner * 0.75, z);
-        }
+    for (let j = 0; j <= segV; j++) {
+      const v = v0 + (v1 - v0) * (j / segV);
+      for (let i = 0; i <= segU; i++) {
+        const p = P(f, (i / segU) * 2 - 1, v, off);
+        pos.push(p.x, p.y, p.z);
       }
     }
-    for (let v = 0; v < segV; v++) for (let u = 0; u < segU; u++) {
-      const a = v * (segU + 1) + u, b = a + 1, c = a + segU + 1, d = c + 1;
-      if (side === 'front' || side === 'left') idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d);
+    for (let j = 0; j < segV; j++) for (let i = 0; i < segU; i++) {
+      const a = j * (segU + 1) + i, b = a + 1, c = a + segU + 1, d = c + 1;
+      if (flip) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -180,68 +182,84 @@ export function createTeaHouse(): TeaHouse {
     g.computeVertexNormals();
     return g;
   };
-  for (const s of ['front', 'back', 'left', 'right'] as const) roofParts.push(paint(slope(s), COL.roof));
-  // underside (so the eaves aren't see-through from below)
-  for (const s of ['front', 'back', 'left', 'right'] as const) {
-    const g = slope(s);
-    g.translate(0, -0.12, 0);
-    const ix = g.index!.array as Uint16Array | Uint32Array;
-    for (let i = 0; i < ix.length; i += 3) { const t = ix[i]; ix[i] = ix[i + 1]; ix[i + 1] = t; }
-    g.computeVertexNormals();
-    roofDark.push(paint(g, COL.timber));
+  // Winding: unflipped triangles have normal dP/dv x dP/du; flip if that points inwards.
+  const centre = new THREE.Vector3(0, eaveY - 1.5, 0);
+  const outward = (f: Face, v = 0.25) => {
+    const a = P(f, 0.1, v), du = P(f, 0.2, v).sub(a), dv = P(f, 0.1, v + 0.05).sub(a);
+    return new THREE.Vector3().crossVectors(dv, du).dot(a.clone().sub(centre)) < 0;
+  };
+  for (const f of ['front', 'back'] as const) {
+    const flip = outward(f);
+    roofParts.push(paint(surface(f, 0, 1, 0, flip), COL.roof));
+    roofDark.push(paint(surface(f, 0, 1, -0.14, !flip), COL.timber)); // underside
   }
-  // tile ridges (rows of rounded battens on front/back)
-  for (const zs of [1, -1]) {
-    for (let k = -9; k <= 9; k++) {
-      const pts: THREE.Vector3[] = [];
-      for (let v = 0; v <= 6; v++) {
-        const tv = v / 6 * 0.98;
-        const half = RW + (ridgeHalf - RW) * tv;
-        const tu = k / 10;
-        const x = tu * half;
-        const corner = Math.pow(Math.abs(tu), 6) * (1 - tv);
-        pts.push(new THREE.Vector3(x, eaveY + (ridgeY - eaveY) * curve(tv) + corner * 0.75 + 0.06, zs * (RD * (1 - tv) + 0.04)));
-      }
-      roofDark.push(paint(tube(pts, 0.07, 0.07, 4, 8), COL.roofDark));
+  for (const f of ['left', 'right'] as const) {
+    const flip = outward(f);
+    roofParts.push(paint(surface(f, 0, GABLE, 0, flip), COL.roof));
+    roofDark.push(paint(surface(f, 0, GABLE, -0.14, !flip), COL.timber));
+    // vertical gable: warm timber with vertical slats
+    const gable = surface(f, GABLE, 1, -0.05, outward(f, 0.75));
+    solid.push(paint(gable, COL.timberLight));
+    solid.push(paint(surface(f, GABLE, 1, -0.09, !outward(f, 0.75)), COL.timber));
+    const sx = f === 'right' ? 1 : -1;
+    for (let k = -3; k <= 3; k++) {
+      const z = (k / 4) * hz(GABLE);
+      const top = Y(1 - Math.abs(z) / RD) - 0.1;
+      const h = top - Y(GABLE);
+      if (h < 0.15) continue;
+      solid.push(paint(place(box(0.05, h, 0.07), sx * (ridgeHalf - 0.02), Y(GABLE) + h / 2, z), COL.timber));
     }
   }
-  // eave fascia boards
-  for (const zs of [1, -1]) {
+  // ceiling closes the attic so you never see sky through the roof from below
+  solid.push(paint(place(box(W + 0.4, 0.08, D + 0.4), 0, FLOOR + WALL + 0.1, 0), COL.timber));
+  // tile battens on every slope
+  const batten = (f: Face, u: number, v1: number) => {
     const pts: THREE.Vector3[] = [];
-    for (let u = 0; u <= 16; u++) {
-      const tu = u / 16 * 2 - 1;
-      pts.push(new THREE.Vector3(tu * RW, eaveY + Math.pow(Math.abs(tu), 6) * 0.75 - 0.03, zs * (RD + 0.03)));
-    }
-    roofDark.push(paint(tube(pts, 0.09, 0.09, 4, 32), COL.roofRidge));
+    for (let j = 0; j <= 8; j++) pts.push(P(f, u, (j / 8) * v1, 0.07));
+    roofDark.push(paint(tube(pts, 0.065, 0.065, 4, 10), COL.roofDark));
+  };
+  for (let k = -8; k <= 8; k++) {
+    batten('front', k / 9.5, 0.97);
+    batten('back', k / 9.5, 0.97);
   }
-  // gable triangles (upper irimoya part) + main ridge
-  const gableY0 = eaveY + (ridgeY - eaveY) * curve(0.55);
-  for (const xs of [1, -1]) {
-    const x = xs * ridgeHalf * 0.98;
-    const g = new THREE.BufferGeometry();
-    const zz = RD * (1 - 0.55) * 0.95;
-    g.setAttribute('position', new THREE.Float32BufferAttribute([x, gableY0, -zz, x, gableY0, zz, x, ridgeY + 0.05, 0], 3));
-    if (xs > 0) g.setIndex([0, 2, 1]); else g.setIndex([0, 1, 2]);
-    g.computeVertexNormals();
-    solid.push(paint(g, COL.timberLight));
+  for (let k = -5; k <= 5; k++) {
+    batten('left', k / 6.5, GABLE - 0.02);
+    batten('right', k / 6.5, GABLE - 0.02);
   }
-  roofDark.push(paint(place(box(ridgeHalf * 2 + 0.6, 0.32, 0.4), 0, ridgeY + 0.12, 0), COL.roofRidge));
-  // ridge end ornaments (onigawara-ish curls)
+  // hip + barge caps along every corner line (hides the joins, gives the crisp silhouette)
+  for (const f of ['front', 'back'] as const) for (const u of [-1, 1]) {
+    const pts: THREE.Vector3[] = [];
+    for (let j = 0; j <= 14; j++) pts.push(P(f, u, j / 14, 0.1));
+    roofDark.push(paint(tube(pts, 0.13, 0.1, 6, 20), COL.roofRidge));
+  }
+  // eave fascia: a closed loop around the whole roof edge
+  {
+    const loop: THREE.Vector3[] = [];
+    for (const f of ['front', 'right', 'back', 'left'] as const) for (let i = 0; i < 16; i++) loop.push(P(f, (i / 16) * 2 - 1, 0, -0.02));
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(loop, true, 'centripetal'), 128, 0.1, 5, true);
+    roofDark.push(paint(g, COL.roofRidge));
+  }
+  // main ridge + upturned end ornaments
+  roofDark.push(paint(place(box(ridgeHalf * 2 + 0.5, 0.34, 0.42), 0, ridgeY + 0.1, 0), COL.roofRidge));
+  roofDark.push(paint(place(box(ridgeHalf * 2 + 0.2, 0.12, 0.6), 0, ridgeY - 0.04, 0), COL.roofDark));
   for (const xs of [1, -1]) {
     const pts = [
-      new THREE.Vector3(xs * (ridgeHalf + 0.2), ridgeY + 0.1, 0),
-      new THREE.Vector3(xs * (ridgeHalf + 0.5), ridgeY + 0.45, 0),
-      new THREE.Vector3(xs * (ridgeHalf + 0.45), ridgeY + 0.8, 0),
+      new THREE.Vector3(xs * (ridgeHalf + 0.15), ridgeY + 0.12, 0),
+      new THREE.Vector3(xs * (ridgeHalf + 0.42), ridgeY + 0.42, 0),
+      new THREE.Vector3(xs * (ridgeHalf + 0.36), ridgeY + 0.78, 0),
+      new THREE.Vector3(xs * (ridgeHalf + 0.18), ridgeY + 0.88, 0),
     ];
-    roofDark.push(paint(tube(pts, 0.2, 0.08, 6, 6), COL.roofRidge));
+    roofDark.push(paint(tube(pts, 0.22, 0.07, 6, 8), COL.roofRidge));
   }
 
-  // --- chimney for the kettle stove (back-right) ---
-  const chimX = W / 2 - 1.2, chimZ = -D / 2 + 1.0;
-  solid.push(paint(place(new THREE.CylinderGeometry(0.32, 0.38, 2.4, 10), chimX, ridgeY - 0.6, chimZ), COL.stoneDark));
-  solid.push(paint(place(new THREE.CylinderGeometry(0.44, 0.44, 0.18, 10), chimX, ridgeY + 0.62, chimZ), COL.stone));
-  solid.push(paint(place(new THREE.ConeGeometry(0.55, 0.35, 10), chimX, ridgeY + 0.98, chimZ), COL.roofRidge));
-  const chimneyTop = new THREE.Vector3(chimX, ridgeY + 0.9, chimZ);
+  // --- chimney for the kettle stove: rises through the back slope, clear of the ridge ---
+  const chimX = -W / 2 + 1.3, chimZ = -D / 2 + 0.3;
+  const chimBase = eaveY - 0.4, chimTop = ridgeY + 0.55;
+  solid.push(paint(place(new THREE.CylinderGeometry(0.3, 0.36, chimTop - chimBase, 10), chimX, (chimBase + chimTop) / 2, chimZ), COL.stoneDark));
+  solid.push(paint(place(new THREE.CylinderGeometry(0.42, 0.42, 0.16, 10), chimX, chimTop, chimZ), COL.stone));
+  solid.push(paint(place(new THREE.ConeGeometry(0.52, 0.32, 10), chimX, chimTop + 0.36, chimZ), COL.roofRidge));
+  for (const dy of [0.14, 0.22]) solid.push(paint(place(new THREE.CylinderGeometry(0.06, 0.06, dy, 6), chimX + 0.3 * (dy > 0.2 ? 1 : -1), chimTop + 0.16, chimZ), COL.stoneDark));
+  const chimneyTop = new THREE.Vector3(chimX, chimTop + 0.3, chimZ);
 
   // --- lanterns (hanging at eave corners + a stone lantern by the path) ---
   const lanternMat = toon({ color: COL.lanternPaper, emissive: '#ffb45a', emissiveIntensity: 0, rim: 0.2 });

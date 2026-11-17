@@ -68,7 +68,7 @@ export function createHeroTree(seed = 7, scale = 1): THREE.Group {
     for (let k = 0; k < puffs; k++) {
       const r = 1.15 + rand() * 0.9;
       const p = c.clone().add(new THREE.Vector3((rand() - 0.5) * 2.2, (rand() - 0.3) * 1.3, (rand() - 0.5) * 2.2));
-      const g = blob(r, 2, 0.22, rand() * 50, 0.82);
+      const g = blob(r, 3, 0.22, rand() * 50, 0.82);
       place(g, p.x, p.y, p.z, rand(), rand() * 6, rand());
       const tone = Math.min(1, Math.max(0, (p.y - 7.5) / 4.5));
       const col = tone < 0.5 ? deep.clone().lerp(mid, tone * 2) : mid.clone().lerp(lit, (tone - 0.5) * 2);

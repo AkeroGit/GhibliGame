@@ -31,7 +31,7 @@ let clock = Number(params.get('t') ?? 0);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = quality !== 'low';
@@ -88,7 +88,7 @@ for (const a of house.lightAnchors) {
 }
 
 const hero = createHeroTree(7, 1.05);
-hero.position.set(HERO_TREE.x, heightAt(HERO_TREE.x, HERO_TREE.z) - 0.15, HERO_TREE.z);
+hero.position.set(HERO_TREE.x, heightAt(HERO_TREE.x, HERO_TREE.z) - 0.35, HERO_TREE.z);
 hero.rotation.y = 0.8;
 scene.add(hero);
 
@@ -171,10 +171,18 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   tree: [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)],
   sea: [new THREE.Vector3(HOUSE.x + 4, HOUSE.y + 3.4, HOUSE.z + 9), new THREE.Vector3(LOOKOUT.x - 40, 4, LOOKOUT.z - 10)],
   aerial: [new THREE.Vector3(70, 48, 80), new THREE.Vector3(0, 6, 0)],
+  roof: [new THREE.Vector3(HOUSE.x + 11, HOUSE.y + 6.5, HOUSE.z + 9), new THREE.Vector3(HOUSE.x + 1, HOUSE.y + 3.2, HOUSE.z)],
+  porch: [new THREE.Vector3(HOUSE.x + 1.5, HOUSE.y + 1.7, HOUSE.z + 12.5), new THREE.Vector3(HOUSE.x + 0.5, HOUSE.y + 1.6, HOUSE.z + 2)],
+  corner: [house.group.localToWorld(new THREE.Vector3(10.5, 6.2, 9.5)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
+  cornerlow: [house.group.localToWorld(new THREE.Vector3(9.5, 2.2, 9.0)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
-const [camPos, camLook] = presets[params.get('cam') ?? 'house'] ?? presets.house;
+if (params.has('cp')) {
+  const [a, b, c, d, e, f] = params.get('cp')!.split(',').map(Number);
+  presets.custom = [new THREE.Vector3(a, b, c), new THREE.Vector3(d, e, f)];
+}
+const [camPos, camLook] = presets[params.has('cp') ? 'custom' : params.get('cam') ?? 'house'] ?? presets.house;
 camera.position.copy(camPos);
 camera.lookAt(camLook);
 // gentle orbit drift so the live build feels alive (disabled for stills)
@@ -212,10 +220,10 @@ function frame(dt: number) {
   sun.position.copy(lightDir).multiplyScalar(120).add(tmp.set(0, 0, 0));
   sun.target.position.set(0, 0, 0);
   sun.color.copy(s.night > 0.55 ? new THREE.Color('#9fb3ff') : s.sunColor);
-  sun.intensity = s.night > 0.55 ? 0.55 : s.sunIntensity;
+  sun.intensity = s.night > 0.55 ? 0.6 : s.sunIntensity * 1.25;
   hemi.color.copy(s.ambientSky);
   hemi.groundColor.copy(s.ambientGround);
-  hemi.intensity = 0.75 + 0.25 * (1 - s.night);
+  hemi.intensity = 0.55 + 0.2 * (1 - s.night);
   fog.color.copy(s.fog);
   scene.background = s.fog;
 
@@ -232,9 +240,9 @@ function frame(dt: number) {
   for (const sp of smoke) {
     const t = (sp.userData.phase + clock * 0.06) % 1;
     sp.position.copy(smokeOrigin).add(tmp.set(t * 5 * wind + Math.sin(t * 9 + clock) * 0.3, t * 7, t * 1.5));
-    const sz = 0.6 + t * 3.2;
+    const sz = 0.5 + t * 2.2;
     sp.scale.set(sz, sz, 1);
-    (sp.material as THREE.SpriteMaterial).opacity = Math.sin(t * Math.PI) * 0.38;
+    (sp.material as THREE.SpriteMaterial).opacity = Math.sin(t * Math.PI) * 0.28 * (1 - t * 0.5);
     (sp.material as THREE.SpriteMaterial).color.copy(s.cloudLit).lerp(s.ambientSky, 0.3);
   }
 

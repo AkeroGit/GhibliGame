@@ -29,6 +29,10 @@ const shots = [
   ['night', 'day=0.95&cam=house'],
   ['tree', 'day=0.42&cam=tree'],
   ['aerial', 'day=0.45&cam=aerial'],
+  ['roof', 'day=0.45&cam=roof'],
+  ['porch', 'day=0.6&cam=porch'],
+  ['corner', 'day=0.45&cam=corner'],
+  ['cornerlow', 'day=0.45&cam=cornerlow'],
 ].filter(([n]) => !only || only.split(',').includes(n));
 
 for (const [name, q] of shots) {
