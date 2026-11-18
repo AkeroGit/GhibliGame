@@ -10,6 +10,8 @@ import { createClouds } from './world/clouds';
 import { createHeroTree, createSmallTree } from './models/trees';
 import { createTeaHouse } from './models/teahouse';
 import { mulberry32 } from './lib/noise';
+import { InputController } from './game/input';
+import { createFollowCamera, createPlayer } from './game/player';
 
 /**
  * Kettle Hill — Phase 0 (3D style test).
@@ -17,6 +19,7 @@ import { mulberry32 } from './lib/noise';
  *   ?day=0.5       fixed time of day (0 midnight, .25 dawn, .5 noon, .75 dusk)
  *   ?speed=0.004   day-cycle speed (days per second); default one day per ~6 minutes
  *   ?cam=house     camera preset: house | tree | sea | aerial
+ *   ?play=1        enable the behind-the-player prototype controls
  *   ?t=20          animation clock start (seconds)
  *   ?freeze=1      render one frame and stop (screenshots)
  *   ?q=low         quality: low | med | high
@@ -25,6 +28,7 @@ const params = new URLSearchParams(location.search);
 const fixedDay = params.has('day') ? Number(params.get('day')) : null;
 const daySpeed = Number(params.get('speed') ?? 1 / 360);
 const freeze = params.get('freeze') === '1';
+const playMode = params.get('play') === '1';
 const quality = (params.get('q') ?? 'high') as 'low' | 'med' | 'high';
 let clock = Number(params.get('t') ?? 0);
 
@@ -191,7 +195,18 @@ if (params.has('cp')) {
 const [camPos, camLook] = presets[params.has('cp') ? 'custom' : params.get('cam') ?? 'house'] ?? presets.house;
 camera.position.copy(camPos);
 camera.lookAt(camLook);
-// gentle orbit drift so the live build feels alive (disabled for stills)
+// Play mode owns the camera; style-test mode keeps the cinematic presets.
+const input = new InputController(renderer.domElement);
+const player = createPlayer();
+player.position.set(7, heightAt(7, 7) + 0.02, 7);
+scene.add(player.root);
+const followCamera = createFollowCamera(camera);
+followCamera.reset(player.root);
+const playPrompt = document.createElement('div');
+playPrompt.textContent = playMode ? 'WASD / arrows to walk · click to look · R to reset camera' : 'Kettle Hill · add ?play=1 to explore';
+playPrompt.style.cssText = 'position:fixed;left:18px;bottom:18px;padding:9px 13px;border-radius:14px;color:#fff;background:rgba(32,38,56,.62);font:13px system-ui,sans-serif;letter-spacing:.02em;text-shadow:0 1px 2px #000;pointer-events:none;backdrop-filter:blur(5px)';
+document.body.appendChild(playPrompt);
+// gentle orbit drift so the live build feels alive (disabled for stills and play mode)
 const orbitCentre = camLook.clone();
 const orbitR = Math.hypot(camPos.x - camLook.x, camPos.z - camLook.z);
 let orbitA = Math.atan2(camPos.z - camLook.z, camPos.x - camLook.x);
@@ -264,7 +279,11 @@ function frame(dt: number) {
   fp.needsUpdate = true;
   fireflyMat.opacity = s.night * (0.7 + 0.3 * Math.sin(clock * 2));
 
-  if (!freeze) {
+  if (playMode && !freeze) {
+    if (input.consumeResetCamera()) followCamera.reset(player.root);
+    player.update(input, dt, followCamera.yaw, clock);
+    followCamera.update(player.root, input, dt);
+  } else if (!freeze) {
     orbitA += dt * 0.01;
     camera.position.set(orbitCentre.x + Math.cos(orbitA) * orbitR, camPos.y + Math.sin(clock * 0.2) * 0.15, orbitCentre.z + Math.sin(orbitA) * orbitR);
     camera.lookAt(orbitCentre);
