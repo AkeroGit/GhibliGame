@@ -13,6 +13,7 @@ const N = Math.round(WORLD / RES) + 1;
 const HALF = WORLD / 2;
 
 export const HOUSE = new THREE.Vector3(2, 0, -6); // y filled in at bake
+export const HOUSE_ROT = 0.12; // yaw of the tea house (radians)
 export const HERO_TREE = new THREE.Vector3(-11, 0, -1);
 export const LOOKOUT = new THREE.Vector3(-34, 0, -9);
 
@@ -82,22 +83,33 @@ function landform(x: number, z: number): number {
 export const heights = new Float32Array(N * N);
 const pathDist = new Float32Array(N * N);
 
+const KNOLL_IN = 2.5, KNOLL_OUT = 8, KNOLL_K = 0.8, KNOLL_DOME = 0.25;
+
 function idx(i: number, j: number) { return j * N + i; }
+
+/** Landform + the house plateau + the lookout shelf (before the tree knoll and paths). */
+function baseHeight(x: number, z: number): number {
+  let h = landform(x, z);
+  // Plateau for the tea house and garden.
+  const dh = Math.hypot((x - HOUSE.x) * 0.9, z - HOUSE.z);
+  h = lerp(h, HOUSE.y, smoothstep(15, 8, dh));
+  // Small flat lookout.
+  const dl = Math.hypot(x - LOOKOUT.x, z - LOOKOUT.z);
+  h = lerp(h, LOOKOUT.y, smoothstep(6, 3, dl));
+  return h;
+}
 
 function bake() {
   HOUSE.y = Math.round(landform(HOUSE.x, HOUSE.z) * 10) / 10;
   LOOKOUT.y = landform(LOOKOUT.x, LOOKOUT.z);
-  // Path centre heights (smoothed so the trail climbs evenly).
+  HERO_TREE.y = baseHeight(HERO_TREE.x, HERO_TREE.z);
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       const x = -HALF + i * RES, z = -HALF + j * RES;
-      let h = landform(x, z);
-      // Plateau for the tea house and garden.
-      const dh = Math.hypot((x - HOUSE.x) * 0.9, z - HOUSE.z);
-      h = lerp(h, HOUSE.y, smoothstep(15, 8, dh));
-      // Small flat lookout.
-      const dl = Math.hypot(x - LOOKOUT.x, z - LOOKOUT.z);
-      h = lerp(h, LOOKOUT.y, smoothstep(6, 3, dl));
+      let h = baseHeight(x, z);
+      // The camphor tree sits on a soft, slightly domed knoll instead of a raw slope.
+      const dt = Math.hypot(x - HERO_TREE.x, z - HERO_TREE.z);
+      h = lerp(h, HERO_TREE.y + KNOLL_DOME * smoothstep(KNOLL_IN + 1.5, 0, dt), KNOLL_K * smoothstep(KNOLL_OUT, KNOLL_IN, dt));
       // Paths: soften cross-slope and wear a shallow groove.
       let pd = 99;
       if (Math.abs(x) < 70 && z > -30 && z < 70) {
@@ -206,13 +218,32 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
     if (pathT > 0.5) kind = 'path';
   }
 
-  // Tea house footprint + porch: no grass.
-  const hx = Math.abs(x - HOUSE.x), hz = z - HOUSE.z;
-  if (hx < 6.6 && hz > -5.2 && hz < 7.2) grassiness *= 0.0;
+  // Tea house: clear grass only under the real footprint (body + veranda + step stone),
+  // in house space, with a soft trodden fringe instead of a hard square.
+  const dxh = x - HOUSE.x, dzh = z - HOUSE.z;
+  const cr = Math.cos(HOUSE_ROT), sr = Math.sin(HOUSE_ROT);
+  const lx = dxh * cr - dzh * sr, lz = dxh * sr + dzh * cr;
+  let sd = Math.min(
+    sdBox(lx, lz, 0, 0, 4.0, 3.2), // body + foundation stones
+    sdBox(lx, lz, 0, 3.6, 4.85, 0.85), // front engawa
+    sdBox(lx, lz, 4.25, 0, 0.7, 2.9), // side engawa
+  );
+  sd = Math.min(sd, Math.hypot((lx - 0) / 1.25, (lz - 4.95) / 0.85) - 0.9); // step stone
+  sd = Math.min(sd, Math.hypot(lx + 2.6, lz - 6.2) - 0.55); // stone lantern
+  if (sd < 1.2) {
+    grassiness *= smoothstep(-0.05, 0.75, sd);
+    // bare, shaded earth under the floor; trodden earth where people step up
+    tmpRock.copy(C.pathEdge).multiplyScalar(0.72);
+    c.lerp(tmpRock, smoothstep(0.4, -0.4, sd) * 0.85);
+  }
 
   return { color: c, kind, grassiness };
 }
 const tmpRock = new THREE.Color();
+function sdBox(x: number, z: number, cx: number, cz: number, hx: number, hz: number): number {
+  const qx = Math.abs(x - cx) - hx, qz = Math.abs(z - cz) - hz;
+  return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0);
+}
 
 export function buildTerrain(): THREE.Mesh {
   const seg = 240;

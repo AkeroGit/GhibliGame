@@ -3,7 +3,7 @@ import { globalUniforms, toon } from './render/toon';
 import { createPost } from './render/post';
 import { dayState } from './world/daylight';
 import { createSky } from './world/sky';
-import { buildTerrain, heightAt, HOUSE, HERO_TREE, LOOKOUT, surfaceAt } from './world/terrain';
+import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, surfaceAt } from './world/terrain';
 import { createSea } from './world/sea';
 import { createGrass } from './world/grass';
 import { createClouds } from './world/clouds';
@@ -81,7 +81,7 @@ scene.add(grass.mesh);
 
 const house = createTeaHouse();
 house.group.position.copy(HOUSE);
-house.group.rotation.y = 0.12;
+house.group.rotation.y = HOUSE_ROT;
 scene.add(house.group);
 const lanternLights: THREE.PointLight[] = [];
 for (const a of house.lightAnchors) {
@@ -91,8 +91,15 @@ for (const a of house.lightAnchors) {
   lanternLights.push(l);
 }
 
+/** Lowest ground under a footprint, so trunks never float on the downhill side. */
+function groundMin(x: number, z: number, r: number): number {
+  let y = heightAt(x, z);
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; y = Math.min(y, heightAt(x + Math.cos(a) * r, z + Math.sin(a) * r)); }
+  return y;
+}
+
 const hero = createHeroTree(7, 1.05);
-hero.position.set(HERO_TREE.x, heightAt(HERO_TREE.x, HERO_TREE.z) - 0.35, HERO_TREE.z);
+hero.position.set(HERO_TREE.x, groundMin(HERO_TREE.x, HERO_TREE.z, 1.2) - 0.2, HERO_TREE.z);
 hero.rotation.y = 0.8;
 scene.add(hero);
 
@@ -107,7 +114,7 @@ for (let i = 0; i < 400 && planted < 46; i++) {
   if (s.kind !== 'grass' || heightAt(x, z) < 1.5) continue;
   if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 16) continue;
   const t = createSmallTree(100 + i, rand() < 0.45 ? 'pine' : 'round');
-  t.position.set(x, heightAt(x, z) - 0.1, z);
+  t.position.set(x, groundMin(x, z, 0.5) - 0.08, z);
   t.rotation.y = rand() * 6.28;
   t.scale.setScalar(0.9 + rand() * 0.9);
   scene.add(t);
@@ -188,6 +195,8 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
+// downhill side of the camphor tree, low: checks the trunk is planted
+presets.treelow = [new THREE.Vector3(HERO_TREE.x - 7, HERO_TREE.y + 0.6, HERO_TREE.z + 7), new THREE.Vector3(HERO_TREE.x, HERO_TREE.y + 1.6, HERO_TREE.z)];
 if (params.has('cp')) {
   const [a, b, c, d, e, f] = params.get('cp')!.split(',').map(Number);
   presets.custom = [new THREE.Vector3(a, b, c), new THREE.Vector3(d, e, f)];

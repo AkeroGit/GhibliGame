@@ -55,7 +55,7 @@ export function createGrass(count = 140000, radius = 78) {
     const y = heightAt(x, z);
     if (y < 0.3) continue;
     offsets.set([x, y - 0.02, z, rand() * Math.PI * 2], n * 4);
-    const tall = 0.35 + 0.5 * smoothstep(0.35, 0.75, clump) + rand() * 0.25;
+    const tall = (0.35 + 0.5 * smoothstep(0.35, 0.75, clump) + rand() * 0.25) * (0.45 + 0.55 * surf.grassiness);
     shape.set([tall, 0.05 + rand() * 0.04, (rand() - 0.5) * 0.5], n * 3);
     colors.set([surf.color.r, surf.color.g, surf.color.b], n * 3);
     n++;

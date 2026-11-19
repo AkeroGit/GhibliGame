@@ -28,6 +28,7 @@ const shots = [
   ['dusk', 'day=0.745&cam=sea'],
   ['night', 'day=0.95&cam=house'],
   ['tree', 'day=0.42&cam=tree'],
+  ['treelow', 'day=0.42&cam=treelow'],
   ['aerial', 'day=0.45&cam=aerial'],
   ['roof', 'day=0.45&cam=roof'],
   ['porch', 'day=0.6&cam=porch'],
