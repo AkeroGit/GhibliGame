@@ -90,7 +90,7 @@ export function createSea(heightAt: (x: number, z: number) => number) {
         // fog to horizon
         float dist = length(vW - cameraPosition);
         float f = smoothstep(uFogNear * 2.0, uFogFar * 2.2, dist);
-        water = mix(water, uFogColor, f * 0.75);
+        water = mix(water, mix(uFogColor, uHorizon, 0.7), f * 0.95);
         gl_FragColor = vec4(water, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

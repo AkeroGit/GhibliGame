@@ -77,6 +77,7 @@ const sea = createSea(heightAt);
 scene.add(sea.mesh);
 
 const grass = createGrass(quality === 'low' ? 50000 : quality === 'med' ? 100000 : 160000);
+grass.mesh.receiveShadow = quality !== 'low';
 scene.add(grass.mesh);
 
 const house = createTeaHouse();
@@ -187,6 +188,8 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   tree: [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)],
   sea: [new THREE.Vector3(HOUSE.x + 4, HOUSE.y + 3.4, HOUSE.z + 9), new THREE.Vector3(LOOKOUT.x - 40, 4, LOOKOUT.z - 10)],
   aerial: [new THREE.Vector3(70, 48, 80), new THREE.Vector3(0, 6, 0)],
+  // looking west into the sunset over the sea: shadows run towards camera, silhouettes get rim light
+  cover: [new THREE.Vector3(HOUSE.x + 17, HOUSE.y + 2.2, HOUSE.z + 11), new THREE.Vector3(HOUSE.x - 3, HOUSE.y + 3.2, HOUSE.z - 1)],
   roof: [new THREE.Vector3(HOUSE.x + 11, HOUSE.y + 6.5, HOUSE.z + 9), new THREE.Vector3(HOUSE.x + 1, HOUSE.y + 3.2, HOUSE.z)],
   porch: [new THREE.Vector3(HOUSE.x + 1.5, HOUSE.y + 1.7, HOUSE.z + 12.5), new THREE.Vector3(HOUSE.x + 0.5, HOUSE.y + 1.6, HOUSE.z + 2)],
   corner: [house.group.localToWorld(new THREE.Vector3(10.5, 6.2, 9.5)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
@@ -214,7 +217,7 @@ followCamera.reset(player.root);
 const playPrompt = document.createElement('div');
 playPrompt.textContent = playMode ? 'WASD / arrows to walk · click to look · R to reset camera' : 'Kettle Hill · add ?play=1 to explore';
 playPrompt.style.cssText = 'position:fixed;left:18px;bottom:18px;padding:9px 13px;border-radius:14px;color:#fff;background:rgba(32,38,56,.62);font:13px system-ui,sans-serif;letter-spacing:.02em;text-shadow:0 1px 2px #000;pointer-events:none;backdrop-filter:blur(5px)';
-document.body.appendChild(playPrompt);
+if (params.get('ui') !== '0') document.body.appendChild(playPrompt);
 // gentle orbit drift so the live build feels alive (disabled for stills and play mode)
 const orbitCentre = camLook.clone();
 const orbitR = Math.hypot(camPos.x - camLook.x, camPos.z - camLook.z);
@@ -231,7 +234,8 @@ const resize = () => {
 resize();
 window.addEventListener('resize', resize);
 
-let day = fixedDay ?? 0.42;
+const smooth01 = (t: number) => { const x = Math.min(1, Math.max(0, t)); return x * x * (3 - 2 * x); };
+let day = fixedDay ?? 0.69; // open on golden hour
 const tmp = new THREE.Vector3();
 function frame(dt: number) {
   clock += dt;
@@ -244,6 +248,8 @@ function frame(dt: number) {
   globalUniforms.uSunColor.value.copy(s.sunColor);
   globalUniforms.uAmbient.value.copy(s.ambientSky);
   globalUniforms.uNight.value = s.night;
+  globalUniforms.uCloudOff.value.set(clock * 1.6, clock * 0.55);
+  globalUniforms.uCloudAmt.value = 0.85 * (1 - s.night) * Math.min(1, s.sunIntensity / 1.5);
 
   // light: sun by day, moon by night (cool and dim)
   const lightDir = s.night > 0.55 ? s.moonDir : s.sunDir;
@@ -263,8 +269,10 @@ function frame(dt: number) {
   grass.update(s.ambientSky, s.ambientGround, s.sunIntensity);
 
   // lanterns + shoji glow
-  for (const m of house.glowMaterials) m.emissiveIntensity = s.lanterns * 1.6;
-  for (const l of lanternLights) l.intensity = s.lanterns * (5 + Math.sin(clock * 7 + l.id) * 0.4);
+  // someone is always home: a faint warm glow by day that swells into lamplight at dusk
+  const glow = Math.max(s.lanterns, 0.25 + 0.6 * smooth01((0.62 - s.sunDir.y) / 0.5));
+  for (const m of house.glowMaterials) m.emissiveIntensity = glow * 1.6;
+  for (const l of lanternLights) l.intensity = glow * (5 + Math.sin(clock * 7 + l.id) * 0.4);
 
   // smoke
   for (const sp of smoke) {

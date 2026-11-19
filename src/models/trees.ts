@@ -60,7 +60,7 @@ export function createHeroTree(seed = 7, scale = 1): THREE.Group {
   clusterCentres.push(new THREE.Vector3(0.2, 11.2, 0.1), new THREE.Vector3(-1.2, 10.4, 1.4), new THREE.Vector3(1.4, 10.0, -1.2));
 
   // Leaf clusters: several puffs per centre, shaded by height (top = sunlit).
-  const deep = new THREE.Color('#2e5e34');
+  const deep = new THREE.Color('#3b6e3c');
   const mid = new THREE.Color('#4f8a3c');
   const lit = new THREE.Color('#8fc05a');
   for (const c of clusterCentres) {

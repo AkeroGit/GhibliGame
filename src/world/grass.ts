@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32, fbm2, smoothstep } from '../lib/noise';
-import { globalUniforms } from '../render/toon';
+import { globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
 import { heightAt, surfaceAt } from './terrain';
 
 /**
@@ -65,7 +65,8 @@ export function createGrass(count = 140000, radius = 78) {
   geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(colors.subarray(0, n * 3), 3));
   geo.instanceCount = n;
 
-  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  // lights: true so blades can sample the sun's shadow map (long tree/house shadows across the meadow)
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, THREE.UniformsLib.lights]);
   Object.assign(uniforms, globalUniforms, {
     uSkyCol: { value: new THREE.Color() },
     uGroundCol: { value: new THREE.Color() },
@@ -75,10 +76,12 @@ export function createGrass(count = 140000, radius = 78) {
   const mat = new THREE.ShaderMaterial({
     uniforms,
     fog: true,
+    lights: true,
     side: THREE.DoubleSide,
     vertexShader: /* glsl */ `
       #include <common>
       #include <fog_pars_vertex>
+      #include <shadowmap_pars_vertex>
       attribute vec4 aOffset;
       attribute vec3 aShape;
       attribute vec3 aColor;
@@ -87,6 +90,7 @@ export function createGrass(count = 140000, radius = 78) {
       varying vec3 vCol;
       varying float vT;
       varying float vGust;
+      varying vec2 vXZ;
       float h1(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
       float n1(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
         return mix(mix(h1(i),h1(i+vec2(1,0)),u.x), mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),u.x), u.y); }
@@ -108,18 +112,30 @@ export function createGrass(count = 140000, radius = 78) {
         vCol = aColor;
         vT = t;
         vGust = gust;
+        vXZ = world.xz;
         vec4 mvPosition = viewMatrix * vec4(world, 1.0);
         gl_Position = projectionMatrix * mvPosition;
+        // shadow lookup at the blade's root height so whole blades darken together
+        vec4 worldPosition = vec4(aOffset.xyz + vec3(p.x, p.y * 0.5, p.z), 1.0);
+        vec3 transformedNormal = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
+        #include <shadowmap_vertex>
         #include <fog_vertex>
       }`,
     fragmentShader: /* glsl */ `
       #include <common>
+      #include <packing>
       #include <fog_pars_fragment>
+      #include <bsdfs>
+      #include <lights_pars_begin>
+      #include <shadowmap_pars_fragment>
+      #include <shadowmask_pars_fragment>
       uniform vec3 uSunColor, uSkyCol, uGroundCol;
       uniform float uNight, uSunI;
       varying vec3 vCol;
       varying float vT;
       varying float vGust;
+      varying vec2 vXZ;
+      ${CLOUD_SHADOW_GLSL}
       void main(){
         // root sinks into the ground colour, tips catch the light
         vec3 base = vCol * 0.62;
@@ -127,8 +143,13 @@ export function createGrass(count = 140000, radius = 78) {
         vec3 col = mix(base, tip, smoothstep(0.0, 1.0, vT));
         // gust sheen: bent blades show their lighter backs
         col = mix(col, col * 1.18 + vec3(0.04, 0.05, 0.0), vGust * vT * 0.6);
-        vec3 light = mix(uSkyCol * 0.75, uSunColor * (0.55 + 0.25 * uSunI), 0.65);
+        float sh = getShadowMask();
+        vec3 amb = uSkyCol * 0.75;
+        vec3 sunL = uSunColor * (0.55 + 0.25 * uSunI);
+        // in shadow the meadow drops into cool sky light, never black
+        vec3 light = mix(amb * vec3(0.98, 1.0, 1.12) + sunL * 0.16, mix(amb, sunL, 0.65), sh);
         col *= light;
+        col = applyCloudShadow(col, vXZ);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

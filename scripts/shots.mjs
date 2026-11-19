@@ -23,18 +23,20 @@ page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') 
 page.on('pageerror', (e) => errors.push(String(e)));
 
 const shots = [
-  ['noon', 'day=0.5&cam=house'],
-  ['dawn', 'day=0.27&cam=house'],
-  ['dusk', 'day=0.745&cam=sea'],
-  ['night', 'day=0.95&cam=house'],
-  ['tree', 'day=0.42&cam=tree'],
-  ['treelow', 'day=0.42&cam=treelow'],
-  ['aerial', 'day=0.45&cam=aerial'],
-  ['roof', 'day=0.45&cam=roof'],
-  ['porch', 'day=0.6&cam=porch'],
-  ['corner', 'day=0.45&cam=corner'],
-  ['cornerlow', 'day=0.45&cam=cornerlow'],
-  ['tip', 'day=0.45&cam=tip'],
+  ['golden', 'ui=0&day=0.69&cam=cover'],
+  ['goldenair', 'ui=0&day=0.69&cam=aerial'],
+  ['noon', 'ui=0&day=0.5&cam=house'],
+  ['dawn', 'ui=0&day=0.27&cam=house'],
+  ['dusk', 'ui=0&day=0.745&cam=sea'],
+  ['night', 'ui=0&day=0.95&cam=house'],
+  ['tree', 'ui=0&day=0.42&cam=tree'],
+  ['treelow', 'ui=0&day=0.42&cam=treelow'],
+  ['aerial', 'ui=0&day=0.45&cam=aerial'],
+  ['roof', 'ui=0&day=0.45&cam=roof'],
+  ['porch', 'ui=0&day=0.6&cam=porch'],
+  ['corner', 'ui=0&day=0.45&cam=corner'],
+  ['cornerlow', 'ui=0&day=0.45&cam=cornerlow'],
+  ['tip', 'ui=0&day=0.45&cam=tip'],
 ].filter(([n]) => !only || only.split(',').includes(n));
 
 for (const [name, q] of shots) {

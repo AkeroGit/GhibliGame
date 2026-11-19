@@ -16,7 +16,25 @@ export const globalUniforms = {
   uSunColor: { value: new THREE.Color(1, 0.95, 0.85) },
   uAmbient: { value: new THREE.Color(0.55, 0.62, 0.8) },
   uNight: { value: 0 },
+  uCloudOff: { value: new THREE.Vector2() }, // drifting cloud-shadow offset (world metres)
+  uCloudAmt: { value: 0.0 }, // cloud-shadow strength (0 at night)
 };
+
+/** GLSL: soft drifting cloud shadows in world XZ. Shared by every lit material. */
+export const CLOUD_SHADOW_GLSL = /* glsl */ `
+uniform vec2 uCloudOff; uniform float uCloudAmt;
+float csH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float csN(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(csH(i),csH(i+vec2(1,0)),u.x), mix(csH(i+vec2(0,1)),csH(i+vec2(1,1)),u.x), u.y); }
+float cloudShadow(vec2 xz){
+  vec2 p = (xz + uCloudOff) * 0.032;
+  float n = csN(p) * 0.6 + csN(p * 2.3 + 7.1) * 0.3 + csN(p * 5.1 - 3.7) * 0.1;
+  return smoothstep(0.46, 0.6, n) * uCloudAmt;
+}
+vec3 applyCloudShadow(vec3 col, vec2 xz){
+  float c = cloudShadow(xz);
+  return mix(col, col * vec3(0.66, 0.72, 0.92), c);
+}`;
 
 let ramp: THREE.DataTexture | null = null;
 export function toonRamp(): THREE.DataTexture {
@@ -109,7 +127,8 @@ vWorldPosK = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
         '#include <common>',
         `#include <common>
 uniform vec3 uSunColor; uniform vec3 uAmbient; uniform float uRim; uniform float uNight;
-varying vec3 vWorldPosK;`,
+varying vec3 vWorldPosK;
+${CLOUD_SHADOW_GLSL}`,
       )
       .replace(
         '#include <opaque_fragment>',
@@ -117,6 +136,7 @@ varying vec3 vWorldPosK;`,
 vec3 vdir = normalize(cameraPosition - vWorldPosK);
 float rimF = pow(1.0 - clamp(dot(normalize(vNormal), normalize((viewMatrix * vec4(vdir, 0.0)).xyz)), 0.0, 1.0), 3.0);
 outgoingLight += mix(uSunColor, uAmbient, 0.5) * rimF * uRim * (1.0 - 0.7 * uNight) * diffuseColor.rgb;
+outgoingLight = applyCloudShadow(outgoingLight - totalEmissiveRadiance, vWorldPosK.xz) + totalEmissiveRadiance;
 #include <opaque_fragment>`,
       );
   };

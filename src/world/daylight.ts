@@ -27,7 +27,9 @@ const KEYS: Key[] = [
   { at: 0.27, top: '#5d7fc0', hor: '#ffc9a0', sun: '#ffcf9e', sunI: 1.6, amb: '#7d8fc8', gnd: '#5a5040', lit: '#fff0dd', shade: '#9aa6d6' },
   { at: 0.36, top: '#3f86e0', hor: '#b6dbf4', sun: '#fff4df', sunI: 2.4, amb: '#8fb2e8', gnd: '#5a6a48', lit: '#ffffff', shade: '#a8bde6' },
   { at: 0.5, top: '#2f7ade', hor: '#acd6f3', sun: '#fff8ec', sunI: 2.7, amb: '#93b8ec', gnd: '#5d7048', lit: '#ffffff', shade: '#aec4ea' },
-  { at: 0.64, top: '#3a7cd6', hor: '#d9e0dc', sun: '#ffe6c0', sunI: 2.3, amb: '#8eaee0', gnd: '#5d6a48', lit: '#fff8ea', shade: '#a6b6e0' },
+  { at: 0.6, top: '#3a7cd6', hor: '#d6e2e4', sun: '#ffeccc', sunI: 2.4, amb: '#8eaee0', gnd: '#5d6a48', lit: '#fff8ea', shade: '#a6b6e0' },
+  // golden hour: the cover shot. Low honey sun, cool violet shadows, peach horizon.
+  { at: 0.69, top: '#4f7ccc', hor: '#ffd2a6', sun: '#ffc888', sunI: 2.25, amb: '#8c8fd2', gnd: '#6a5a40', lit: '#fff1dc', shade: '#9c98cc' },
   { at: 0.73, top: '#5a64b0', hor: '#ffab78', sun: '#ff9a5c', sunI: 1.5, amb: '#7a78b8', gnd: '#5a4038', lit: '#ffd2a8', shade: '#8a7cb4' },
   { at: 0.8, top: '#2a2c66', hor: '#c06a70', sun: '#ff7a5a', sunI: 0.5, amb: '#504a88', gnd: '#2a2030', lit: '#d898a0', shade: '#4a4478' },
   { at: 0.88, top: '#0e1636', hor: '#2c3766', sun: '#8fa6e8', sunI: 0.35, amb: '#2a3966', gnd: '#141a2a', lit: '#9fb0dd', shade: '#2a3560' },

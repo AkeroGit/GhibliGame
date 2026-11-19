@@ -33,8 +33,8 @@ const GradeShader = {
       // saturation lift, gentler in the darks
       c = mix(vec3(lum), c, 1.12 + 0.08 * smoothstep(0.2, 0.7, lum));
       // split toning: cool shadows, warm highlights
-      vec3 cool = vec3(0.92, 0.97, 1.08), warm = vec3(1.05, 1.0, 0.93);
-      c *= mix(cool, warm, smoothstep(0.15, 0.75, lum));
+      vec3 cool = vec3(0.86, 0.92, 1.14), warm = vec3(1.06, 1.0, 0.92);
+      c *= mix(cool, warm, smoothstep(0.1, 0.65, lum));
       // lift the blacks slightly (no pure black in watercolour)
       c = c * 0.97 + vec3(0.012, 0.014, 0.022);
       // paper: coarse fibres + fine grain
