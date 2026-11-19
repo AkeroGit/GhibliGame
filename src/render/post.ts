@@ -70,8 +70,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     update(time: number, night: number) {
       grade.uniforms.uTime.value = time;
       grade.uniforms.uNight.value = night;
-      bloom.strength = 0.22 + night * 0.5;
-      bloom.threshold = 0.93 - night * 0.4;
+      bloom.strength = 0.22 + night * 0.32;
+      bloom.threshold = 0.93 - night * 0.25;
     },
   };
 }

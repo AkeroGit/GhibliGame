@@ -11,6 +11,7 @@ import { createHeroTree, createSmallTree } from './models/trees';
 import { createTeaHouse } from './models/teahouse';
 import { mulberry32 } from './lib/noise';
 import { InputController } from './game/input';
+import { createFlowers, createHydrangeas, createPetals } from './world/life';
 import { createFollowCamera, createPlayer } from './game/player';
 
 /**
@@ -79,6 +80,13 @@ scene.add(sea.mesh);
 const grass = createGrass(quality === 'low' ? 50000 : quality === 'med' ? 100000 : 160000);
 grass.mesh.receiveShadow = quality !== 'low';
 scene.add(grass.mesh);
+// cozy life layer: wildflower drifts, hydrangeas by the veranda, petals on the wind
+const flowers = createFlowers(quality === 'low' ? 4000 : quality === 'med' ? 8000 : 14000);
+flowers.receiveShadow = quality !== 'low';
+scene.add(flowers);
+scene.add(createHydrangeas());
+const petals = createPetals(quality === 'low' ? 120 : quality === 'med' ? 220 : 320);
+scene.add(petals.mesh);
 
 const house = createTeaHouse();
 house.group.position.copy(HOUSE);
@@ -168,9 +176,21 @@ for (let i = 0; i < 9; i++) {
   scene.add(s);
 }
 
+// kettle steam on the side veranda
+const kettleTop = house.group.localToWorld(new THREE.Vector3(4.45, 1.42, 0.8));
+const steam: THREE.Sprite[] = [];
+for (let i = 0; i < 6; i++) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, transparent: true, depthWrite: false, opacity: 0 }));
+  sp.userData.phase = i / 6;
+  steam.push(sp);
+  scene.add(sp);
+}
+const petalFocus = new THREE.Vector3();
+const petalLight = new THREE.Color();
+
 // fireflies
 const fireflyGeo = new THREE.BufferGeometry();
-const FF = 60;
+const FF = quality === 'low' ? 60 : 110;
 const ffBase = new Float32Array(FF * 3);
 for (let i = 0; i < FF; i++) {
   const a = rand() * Math.PI * 2, r = 4 + rand() * 30;
@@ -178,7 +198,21 @@ for (let i = 0; i < FF; i++) {
   ffBase.set([x, heightAt(x, z) + 0.6 + rand() * 1.8, z], i * 3);
 }
 fireflyGeo.setAttribute('position', new THREE.BufferAttribute(ffBase.slice(), 3));
-const fireflyMat = new THREE.PointsMaterial({ color: 0xd8ff8a, size: 0.22, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+// soft round glow sprite: a bright core with a wide falloff (square points read as dead pixels)
+const glowTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,230,1)');
+  grd.addColorStop(0.18, 'rgba(230,255,150,0.85)');
+  grd.addColorStop(0.5, 'rgba(190,255,110,0.18)');
+  grd.addColorStop(1, 'rgba(190,255,110,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const fireflyMat = new THREE.PointsMaterial({ map: glowTex, color: 0xffffff, size: 0.75, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
 const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
 scene.add(fireflies);
 
@@ -211,6 +245,7 @@ camera.lookAt(camLook);
 const input = new InputController(renderer.domElement);
 const player = createPlayer();
 player.position.set(7, heightAt(7, 7) + 0.02, 7);
+player.root.visible = playMode; // style-test shots stay clean
 scene.add(player.root);
 const followCamera = createFollowCamera(camera);
 followCamera.reset(player.root);
@@ -271,7 +306,8 @@ function frame(dt: number) {
   // lanterns + shoji glow
   // someone is always home: a faint warm glow by day that swells into lamplight at dusk
   const glow = Math.max(s.lanterns, 0.25 + 0.6 * smooth01((0.62 - s.sunDir.y) / 0.5));
-  for (const m of house.glowMaterials) m.emissiveIntensity = glow * 1.6;
+  // emissive stays soft at night so bloom haloes rather than smears the facade
+  for (const m of house.glowMaterials) m.emissiveIntensity = glow * (1.6 - 0.55 * s.night);
   for (const l of lanternLights) l.intensity = glow * (5 + Math.sin(clock * 7 + l.id) * 0.4);
 
   // smoke
@@ -284,6 +320,23 @@ function frame(dt: number) {
     (sp.material as THREE.SpriteMaterial).rotation = sp.userData.jit * 2 + t * 0.8;
     (sp.material as THREE.SpriteMaterial).color.copy(s.cloudLit).lerp(s.ambientSky, 0.3);
   }
+
+  // kettle steam: small, quick, curling puffs off the spout
+  for (const sp of steam) {
+    const t = (sp.userData.phase + clock * 0.22) % 1;
+    sp.position.copy(kettleTop).add(tmp.set(t * 0.5 * wind + Math.sin(t * 9 + clock) * 0.08, t * 1.3, Math.cos(t * 7 + clock * 1.3) * 0.06));
+    const sz = 0.16 + t * 0.6;
+    sp.scale.set(sz, sz, 1);
+    (sp.material as THREE.SpriteMaterial).opacity = Math.min(1, t * 8) * (1 - t) * 0.45;
+    (sp.material as THREE.SpriteMaterial).color.copy(s.cloudLit);
+  }
+
+  // petals follow whatever the camera is looking at
+  camera.getWorldDirection(petalFocus);
+  petalFocus.multiplyScalar(14).add(camera.position);
+  petalFocus.y = heightAt(petalFocus.x, petalFocus.z) + 0.6;
+  petalLight.copy(s.ambientSky).lerp(s.sunColor, 0.65).multiplyScalar(1.05 - 0.6 * s.night);
+  petals.update(petalFocus, petalLight);
 
   // fireflies wander at night
   const fp = fireflyGeo.attributes.position as THREE.BufferAttribute;

@@ -119,7 +119,11 @@ if (uSway > 0.0) {
       .replace(
         '#include <worldpos_vertex>',
         `#include <worldpos_vertex>
-vWorldPosK = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+vec4 wpk = vec4(transformed, 1.0);
+#ifdef USE_INSTANCING
+wpk = instanceMatrix * wpk;
+#endif
+vWorldPosK = (modelMatrix * wpk).xyz;`,
       );
 
     shader.fragmentShader = shader.fragmentShader
