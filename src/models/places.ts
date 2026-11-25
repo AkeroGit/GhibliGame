@@ -178,10 +178,11 @@ function bridgeMesh(): THREE.Group {
 
 function streamRibbon(x: number, z: number, length: number, width: number): THREE.Mesh {
   const pts: [number, number][] = [];
-  const n = 18;
+  const n = 22;
   for (let i = 0; i < n; i++) {
-    const t = i / (n - 1), zz = z - length * 0.5 + t * length;
-    pts.push([x + Math.sin(t * Math.PI * 2.4) * 0.8, zz]);
+    const t = i / (n - 1), xx = x - length * 0.5 + t * length;
+    const zz = 24 + Math.sin((xx / 16) * Math.PI * 0.8) * 1.1;
+    pts.push([xx, zz]);
   }
   const water = ribbon(pts, width, 0.1, MAT.water);
   water.material = new THREE.MeshBasicMaterial({ color: '#70d6cf', transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide });
@@ -190,41 +191,61 @@ function streamRibbon(x: number, z: number, length: number, width: number): THRE
 
 export function createMoonbridge(): PlaceLandmark {
   const g = new THREE.Group(); const x = 2, z = 24, y = heightAt(x, z);
-  // A continuous ribbon leaves both bridge ends and bends toward visible banks.
-  g.add(streamRibbon(x, z, 46, 3.4));
-  // Two dark wet banks and thin moving-looking highlights give the water a channel, not a blue plane.
-  const bankLine = (side: number) => { const pts: [number, number][] = []; for (let i = 0; i < 18; i++) { const t = i / 17, zz = z - 23 + t * 46; pts.push([x + Math.sin((zz / 23) * Math.PI * 1.2) * 0.8 + side * 2.0, zz]); } return pts; };
-  g.add(ribbon(bankLine(-1), 0.72, 0.05, '#6f6958'));
-  g.add(ribbon(bankLine(1), 0.72, 0.05, '#6f6958'));
-  for (const off of [-0.75, 0.65]) { const pts: [number, number][] = []; for (let i = 0; i < 10; i++) { const t = i / 9; const zz = z - 20 + t * 40; pts.push([x + Math.sin((zz / 23) * Math.PI * 1.2) * 0.8 + off, zz]); } g.add(ribbon(pts, 0.045, 0.14, '#c3f0d3')); }
-  // banks: dark damp soil just outside water, then mossy stones sampled to the terrain
-  const bankPts: [number, number][] = [];
-  for (let i = 0; i < 18; i++) { const t = i / 17, zz = z - 23 + t * 46; bankPts.push([x - 2.5, zz]); bankPts.push([x + 2.5, zz]); }
-  for (const [bx, bz] of bankPts) put(g, new THREE.DodecahedronGeometry(0.52, 0), m(MAT.moss, 0.38), bx, heightAt(bx, bz) + 0.02, bz, 1.1);
-  const bridge = bridgeMesh(); bridge.position.set(x, y, z); g.add(bridge);
-  const rampMat = m('#a97a4f', 0.3);
-  for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
-    const t = i / 3, rz = z + side * (3.35 + i * 0.48), ry = y + 0.76 - t * 0.58;
-    put(g, new THREE.BoxGeometry(4.7 - i * 0.25, 0.18, 0.46), rampMat, x, ry, rz);
+  // East-west stream: it crosses the north-south footpath, so the bridge has a real purpose.
+  g.add(streamRibbon(x, z, 62, 3.6));
+  const bankLine = (side: number) => {
+    const pts: [number, number][] = [];
+    for (let i = 0; i < 22; i++) { const t = i / 21, xx = -29 + t * 62; pts.push([xx, 24 + Math.sin((xx / 16) * Math.PI * 0.8) * 1.1 + side * 2.0]); }
+    return pts;
+  };
+  g.add(ribbon(bankLine(-1), 0.75, 0.05, '#6f6958'));
+  g.add(ribbon(bankLine(1), 0.75, 0.05, '#6f6958'));
+  for (const off of [-0.75, 0.65]) {
+    const pts: [number, number][] = [];
+    for (let i = 0; i < 16; i++) { const t = i / 15, xx = -26 + t * 56; pts.push([xx, 24 + Math.sin((xx / 16) * Math.PI * 0.8) * 1.1 + off]); }
+    g.add(ribbon(pts, 0.045, 0.14, '#c3f0d3'));
   }
-  // path ribbons land on both ends and continue to the existing meadow paths
-  g.add(ribbon([[x, z - 14], [x - 0.3, z - 9], [x, z - 4]], 2.6, 0.06, '#a78561'));
-  g.add(ribbon([[x, z + 4], [x + 1.6, z + 10], [x + 5, z + 15]], 2.6, 0.06, '#a78561'));
+  // Stone bank armor, sampled to each bank's actual terrain.
+  for (const side of [-1, 1]) for (let i = 0; i < 18; i++) {
+    const xx = -28 + i * 3.3, zz = 24 + Math.sin((xx / 16) * Math.PI * 0.8) * 1.1 + side * 2.5;
+    put(g, new THREE.DodecahedronGeometry(0.5 + (i % 3) * 0.1, 0), m(side > 0 ? MAT.moss : MAT.stoneDark, 0.35), xx, heightAt(xx, zz) + 0.04, zz, 1.05);
+  }
+  // Bridge crosses the stream north-south.
+  const bridge = bridgeMesh(); bridge.position.set(x, y, z); g.add(bridge);
+  // Clear approaches south and north, with a continuation to the mill.
+  g.add(ribbon([[x, z - 16], [x, z - 10], [x, z - 4]], 2.8, 0.06, '#a78561'));
+  g.add(ribbon([[x, z + 4], [x + 0.4, z + 10], [x + 1.0, z + 18]], 2.8, 0.06, '#a78561'));
   for (const side of [-1, 1]) for (let i = -5; i <= 5; i++) {
     const rz = z + i * 3.7, rx = x + side * 2.4;
     put(g, new THREE.DodecahedronGeometry(0.46, 0), m(side > 0 ? MAT.moss : MAT.stoneDark, 0.35), rx, heightAt(rx, rz) + 0.04, rz, 1.05);
   }
-  // A small mill shed beyond the north landing gives the bridge a reason to exist.
-  const mill = new THREE.Group(); mill.position.set(x + 4.8, heightAt(x + 4.8, z + 10) + 0.12, z + 10);
-  put(g, new THREE.CylinderGeometry(3.0, 3.3, 0.22, 10), m(MAT.stoneDark, 0.25), x + 4.8, heightAt(x + 4.8, z + 10) + 0.11, z + 10);
-  put(mill, new THREE.BoxGeometry(3.4, 2.5, 2.8), m(MAT.bridgeDark, 0.3), 0, 1.25, 0);
-  put(mill, new THREE.ConeGeometry(2.5, 1.5, 4), m('#74566f', 0.35), 0, 2.95, 0);
-  put(mill, new THREE.BoxGeometry(0.8, 1.0, 0.08), m('#d9a85e', 0.5), 0, 0.9, 1.14);
-  put(mill, new THREE.CylinderGeometry(0.09, 0.09, 1.8, 8), m('#e6bf73', 0.45), -1.35, 1.2, 1.14);
-  put(mill, new THREE.SphereGeometry(0.18, 10, 8), m('#ffb35c', 0.6), -1.35, 2.15, 1.14);
-  const wheel = new THREE.Group(); wheel.position.set(-1.9, 1.45, 1.55);
+  // Source end: a spring grotto at the west bank, with a visible rock arch and pool.
+  const spring = new THREE.Group(); spring.position.set(-27, heightAt(-27, 24) + 0.1, 24);
+  put(spring, new THREE.CylinderGeometry(2.0, 2.4, 0.22, 10), m('#5b7770', 0.3), 0, 0.11, 0);
+  put(spring, new THREE.TorusGeometry(2.0, 0.42, 7, 12), m('#62786f', 0.35), 0, 1.7, 0);
+  put(spring, new THREE.ConeGeometry(1.3, 2.4, 7), m('#4b625d', 0.35), -1.7, 1.2, 0.2);
+  put(spring, new THREE.ConeGeometry(1.3, 2.4, 7), m('#4b625d', 0.35), 1.7, 1.2, 0.2);
+  put(spring, new THREE.SphereGeometry(0.32, 10, 8), m('#9fe2cf', 0.6), 0, 1.4, 0.15);
+  g.add(spring);
+  // Outlet end: a small pond with reeds and a footpath meeting the water.
+  const pond = new THREE.Group(); pond.position.set(29, heightAt(29, 24) + 0.05, 24);
+  const pondMat = new THREE.MeshBasicMaterial({ color: '#65c6c0', transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+  const pondMesh = new THREE.Mesh(new THREE.CircleGeometry(5.0, 20), pondMat); pondMesh.rotation.x = -Math.PI / 2; pond.add(pondMesh);
+  for (const sx of [-2.8, -1.8, 1.9, 2.8]) { const r = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.7, 5), m('#719d60', 0.4)); r.position.set(sx, 0.7, Math.sin(sx) * 0.7); pond.add(r); }
+  g.add(pond);
+  // A pair of warm guide lanterns makes the north continuation legible even through the slope.
+  for (const zz of [z + 7, z + 10]) {
+    put(g, new THREE.CylinderGeometry(0.09, 0.12, 1.5, 7), m(MAT.stone, 0.3), x + 1.6, heightAt(x + 1.6, zz) + 0.75, zz);
+    put(g, new THREE.SphereGeometry(0.19, 8, 6), m('#ffb45e', 0.65), x + 1.6, heightAt(x + 1.6, zz) + 1.55, zz);
+  }
+  // Mill is beyond the north landing, so crossing and stream endpoint have different directions.
+  const mill = new THREE.Group(); mill.position.set(x + 5.2, heightAt(x + 5.2, z + 13) + 0.12, z + 13);
+  put(g, new THREE.CylinderGeometry(3.0, 3.3, 0.22, 10), m(MAT.stoneDark, 0.25), mill.position.x, mill.position.y - 0.1, mill.position.z);
+  put(mill, new THREE.BoxGeometry(3.6, 2.7, 3.0), m(MAT.bridgeDark, 0.3), 0, 1.35, 0);
+  put(mill, new THREE.ConeGeometry(2.6, 1.55, 4), m('#74566f', 0.35), 0, 3.05, 0);
+  put(mill, new THREE.BoxGeometry(0.9, 1.05, 0.08), m('#f0c36b', 0.55), 0, 1.15, 1.53);
+  const wheel = new THREE.Group(); wheel.position.set(-2.0, 1.45, 1.6);
   const disc = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.18, 7, 18), m('#d19b59', 0.4)); disc.rotation.y = Math.PI / 2; wheel.add(disc);
-  put(mill, new THREE.BoxGeometry(0.7, 1.0, 0.08), m('#f0c36b', 0.55), 0, 1.15, 1.43);
   for (let i = 0; i < 8; i++) { const paddle = put(wheel, new THREE.BoxGeometry(0.18, 2.45, 0.22), m(MAT.bridge, 0.25), 0, 0, 0); paddle.rotation.z = i * Math.PI / 4; }
   mill.add(wheel); g.add(mill);
   return { group: g, focus: new THREE.Vector3(x, y + 1.6, z), name: 'Moonbridge Stream' };

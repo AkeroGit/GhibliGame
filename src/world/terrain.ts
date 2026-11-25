@@ -24,7 +24,7 @@ const PATH_POINTS = [
   [36, 52], [30, 40], [19, 33], [9, 27], [5, 19], [11, 12], [9, 5], [3, 2],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 // Discovery paths: the teahouse junction branches to the stream and bamboo shrine.
-const BRIDGE_PATH_POINTS = [[3, 2], [5, 9], [5, 16], [2, 24], [2, 30], [4, 36], [6, 39]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+const BRIDGE_PATH_POINTS = [[3, 2], [3, 9], [2, 16], [2, 24], [2, 30], [4, 36], [6, 42]].map(([x, z]) => new THREE.Vector3(x, 0, z));
 const SHRINE_PATH_POINTS = [[9, 5], [15, 1], [21, -8], [30, -20]].map(([x, z]) => new THREE.Vector3(x, 0, z));
 // Side path to the cliff lookout.
 const LOOKOUT_POINTS = [
@@ -46,8 +46,8 @@ export const LOOKOUT_PATH = sampleCurve(LOOKOUT_POINTS, 80);
 export const BRIDGE_PATH = sampleCurve(BRIDGE_PATH_POINTS, 130);
 export const SHRINE_PATH = sampleCurve(SHRINE_PATH_POINTS, 150);
 
-function streamCenter(z: number): number { return 2 + Math.sin((z / 23) * Math.PI * 1.2) * 0.8; }
-function streamDistance(x: number, z: number): number { return Math.abs(x - streamCenter(z)); }
+function streamCenterZ(x: number): number { return 24 + Math.sin((x / 16) * Math.PI * 0.8) * 1.1; }
+function streamDistance(x: number, z: number): number { return Math.abs(z - streamCenterZ(x)); }
 
 function distToPolyline(poly: Float32Array, x: number, z: number): number {
   let best = 1e9;
@@ -129,7 +129,7 @@ function bake() {
       pathDist[idx(i, j)] = pd;
       h -= 0.12 * smoothstep(1.6, 0.4, pd);
       // Carve a shallow, winding stream bed from the upper mill to the low meadow.
-      if (z > 0 && z < 48) h -= 0.72 * smoothstep(3.6, 0.35, streamDistance(x, z));
+      if (x > -32 && x < 34) h -= 0.72 * smoothstep(3.6, 0.35, streamDistance(x, z));
       heights[idx(i, j)] = h;
     }
   }
@@ -223,7 +223,7 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
 
   // Stream bed: water colour and no grass inside the carved channel.
   const streamD = streamDistance(x, z);
-  if (z > 0 && z < 48 && streamD < 3.4) {
+  if (x > -32 && x < 34 && streamD < 3.4) {
     const waterT = smoothstep(3.4, 1.25, streamD);
     c.lerp(C.seabed, waterT * 0.7);
     grassiness *= 1 - waterT;
