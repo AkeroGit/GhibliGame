@@ -16,11 +16,16 @@ export const HOUSE = new THREE.Vector3(2, 0, -6); // y filled in at bake
 export const HOUSE_ROT = 0.12; // yaw of the tea house (radians)
 export const HERO_TREE = new THREE.Vector3(-11, 0, -1);
 export const LOOKOUT = new THREE.Vector3(-34, 0, -9);
+export const SHRINE = new THREE.Vector3(30, 0, -20);
+export const BRIDGE = new THREE.Vector3(2, 0, 24);
 
 // Path: beach -> switchbacks -> tea house porch.
 const PATH_POINTS = [
   [36, 52], [30, 40], [19, 33], [9, 27], [5, 19], [11, 12], [9, 5], [3, 2],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
+// Discovery paths: the teahouse junction branches to the stream and bamboo shrine.
+const BRIDGE_PATH_POINTS = [[3, 2], [5, 9], [5, 16], [2, 24]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+const SHRINE_PATH_POINTS = [[9, 5], [15, 1], [21, -8], [30, -20]].map(([x, z]) => new THREE.Vector3(x, 0, z));
 // Side path to the cliff lookout.
 const LOOKOUT_POINTS = [
   [-4, -2], [-14, -6], [-24, -6], [-32, -9],
@@ -38,6 +43,8 @@ function sampleCurve(points: THREE.Vector3[], n: number): Float32Array {
 }
 export const PATH = sampleCurve(PATH_POINTS, 220);
 export const LOOKOUT_PATH = sampleCurve(LOOKOUT_POINTS, 80);
+export const BRIDGE_PATH = sampleCurve(BRIDGE_PATH_POINTS, 130);
+export const SHRINE_PATH = sampleCurve(SHRINE_PATH_POINTS, 150);
 
 function distToPolyline(poly: Float32Array, x: number, z: number): number {
   let best = 1e9;
@@ -115,6 +122,7 @@ function bake() {
       if (Math.abs(x) < 70 && z > -30 && z < 70) {
         pd = Math.min(distToPolyline(PATH, x, z), distToPolyline(LOOKOUT_PATH, x, z));
       }
+      pd = Math.min(pd, distToPolyline(BRIDGE_PATH, x, z), distToPolyline(SHRINE_PATH, x, z));
       pathDist[idx(i, j)] = pd;
       h -= 0.12 * smoothstep(1.6, 0.4, pd);
       heights[idx(i, j)] = h;

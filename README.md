@@ -49,3 +49,8 @@ The build is a single self-contained `dist/index.html`. The generated screenshot
 ## Project direction
 
 The current milestone is the 3D style test plus the first behind-player movement prototype. The next development slice is to improve the playable camera framing and add the first interactive tea-house destination before expanding into gathering and brewing.
+
+
+## Next milestone
+
+See [VISUAL_UPGRADE_PLAN.md](VISUAL_UPGRADE_PLAN.md) for the authored world-expansion and visual-upgrade roadmap.

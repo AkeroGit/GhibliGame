@@ -48,6 +48,10 @@ export function createGrass(count = 140000, radius = 78) {
     const r = Math.sqrt(rand()) * radius;
     const x = Math.cos(a) * r + 2, z = Math.sin(a) * r * 0.95 + 4;
     const surf = surfaceAt(x, z);
+    // authored clearings keep the shrine/bridge silhouettes readable from their reveal shots
+    const shrineClear = Math.hypot(x - 30, z + 20) < 9;
+    const bridgeClear = Math.hypot(x - 2, z - 24) < 7;
+    if (shrineClear || bridgeClear) continue;
     // clumpy density: meadows have thick and thin patches
     const clump = fbm2(x * 0.15 + 5, z * 0.15 - 3, 3);
     const keep = surf.grassiness * (0.35 + 0.9 * smoothstep(0.3, 0.6, clump));

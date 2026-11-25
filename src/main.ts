@@ -3,12 +3,13 @@ import { globalUniforms, toon } from './render/toon';
 import { createPost } from './render/post';
 import { dayState } from './world/daylight';
 import { createSky } from './world/sky';
-import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, surfaceAt } from './world/terrain';
+import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, SHRINE, BRIDGE, surfaceAt } from './world/terrain';
 import { createSea } from './world/sea';
 import { createGrass } from './world/grass';
 import { createClouds } from './world/clouds';
 import { createHeroTree, createSmallTree } from './models/trees';
 import { createTeaHouse } from './models/teahouse';
+import { createBambooShrine, createMoonbridge } from './models/places';
 import { mulberry32 } from './lib/noise';
 import { InputController } from './game/input';
 import { createFlowers, createHydrangeas, createPetals } from './world/life';
@@ -92,6 +93,12 @@ const house = createTeaHouse();
 house.group.position.copy(HOUSE);
 house.group.rotation.y = HOUSE_ROT;
 scene.add(house.group);
+
+// authored discovery landmarks: each gets a distinct silhouette and a reveal camera
+const shrine = createBambooShrine();
+scene.add(shrine.group);
+const bridge = createMoonbridge();
+scene.add(bridge.group);
 const lanternLights: THREE.PointLight[] = [];
 for (const a of house.lightAnchors) {
   const l = new THREE.PointLight(0xffb060, 0, 9, 1.6);
@@ -122,6 +129,9 @@ for (let i = 0; i < 400 && planted < 46; i++) {
   const s = surfaceAt(x, z);
   if (s.kind !== 'grass' || heightAt(x, z) < 1.5) continue;
   if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 16) continue;
+  // reserve clearings around discovery landmarks; distant trees frame them, not bury them
+  if (Math.hypot(x - SHRINE.x, z - SHRINE.z) < 18) continue;
+  if (Math.hypot(x - BRIDGE.x, z - BRIDGE.z) < 12) continue;
   const t = createSmallTree(100 + i, rand() < 0.45 ? 'pine' : 'round');
   t.position.set(x, groundMin(x, z, 0.5) - 0.08, z);
   t.rotation.y = rand() * 6.28;
@@ -229,6 +239,9 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   corner: [house.group.localToWorld(new THREE.Vector3(10.5, 6.2, 9.5)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
   cornerlow: [house.group.localToWorld(new THREE.Vector3(9.5, 2.2, 9.0)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
   tip: [house.group.localToWorld(new THREE.Vector3(5.2, 3.6, 11.5)), house.group.localToWorld(new THREE.Vector3(5.6, 4.1, 4.6))],
+  // high reveal camera: the shrine sits on the eastern shoulder; stay above the intervening ridge
+  shrine: [new THREE.Vector3(shrine.focus.x + 10, shrine.focus.y + 16, shrine.focus.z - 20), new THREE.Vector3(shrine.focus.x, shrine.focus.y + 0.8, shrine.focus.z)],
+  bridge: [new THREE.Vector3(bridge.focus.x + 8, bridge.focus.y + 4.2, bridge.focus.z + 10), bridge.focus],
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
