@@ -3,13 +3,14 @@ import { globalUniforms, toon } from './render/toon';
 import { createPost } from './render/post';
 import { dayState } from './world/daylight';
 import { createSky } from './world/sky';
-import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, SHRINE, BRIDGE, surfaceAt } from './world/terrain';
+import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, SHRINE, BRIDGE, MILL, streamDistAt, streamFrame, surfaceAt } from './world/terrain';
 import { createSea } from './world/sea';
 import { createGrass } from './world/grass';
 import { createClouds } from './world/clouds';
 import { createHeroTree, createSmallTree } from './models/trees';
 import { createTeaHouse } from './models/teahouse';
-import { createBambooShrine, createMoonbridge } from './models/places';
+import { createBambooShrine } from './models/places';
+import { createKettleBrook } from './models/brook';
 import { mulberry32 } from './lib/noise';
 import { InputController } from './game/input';
 import { createFlowers, createHydrangeas, createPetals } from './world/life';
@@ -97,8 +98,10 @@ scene.add(house.group);
 // authored discovery landmarks: each gets a distinct silhouette and a reveal camera
 const shrine = createBambooShrine();
 scene.add(shrine.group);
-const bridge = createMoonbridge();
-scene.add(bridge.group);
+const brook = createKettleBrook();
+scene.add(brook.group);
+if (params.get('hide') === 'brook') brook.group.visible = false;
+if (params.get('sh') === '0') sun.castShadow = false;
 const lanternLights: THREE.PointLight[] = [];
 for (const a of house.lightAnchors) {
   const l = new THREE.PointLight(0xffb060, 0, 9, 1.6);
@@ -131,7 +134,7 @@ for (let i = 0; i < 400 && planted < 46; i++) {
   if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 16) continue;
   // reserve clearings around discovery landmarks; distant trees frame them, not bury them
   if (Math.hypot(x - SHRINE.x, z - SHRINE.z) < 18) continue;
-  if (Math.hypot(x - BRIDGE.x, z - BRIDGE.z) < 12) continue;
+  if (Math.hypot(x - BRIDGE.x, z - BRIDGE.z) < 9 || Math.hypot(x - MILL.x, z - MILL.z) < 8 || streamDistAt(x, z) < 4.5) continue;
   const t = createSmallTree(100 + i, rand() < 0.45 ? 'pine' : 'round');
   t.position.set(x, groundMin(x, z, 0.5) - 0.08, z);
   t.rotation.y = rand() * 6.28;
@@ -241,8 +244,12 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   tip: [house.group.localToWorld(new THREE.Vector3(5.2, 3.6, 11.5)), house.group.localToWorld(new THREE.Vector3(5.6, 4.1, 4.6))],
   // high reveal camera: the shrine sits on the eastern shoulder; stay above the intervening ridge
   shrine: [new THREE.Vector3(shrine.focus.x + 10, shrine.focus.y + 6.5, shrine.focus.z - 17), new THREE.Vector3(shrine.focus.x + 0.4, shrine.focus.y + 2.4, shrine.focus.z - 1.2)],
-  bridge: [new THREE.Vector3(bridge.focus.x - 13, bridge.focus.y + 8, bridge.focus.z - 16), new THREE.Vector3(bridge.focus.x + 3.5, bridge.focus.y + 1.8, bridge.focus.z + 7)],
-  bridgeMap: [new THREE.Vector3(bridge.focus.x, bridge.focus.y + 58, bridge.focus.z + 2), new THREE.Vector3(bridge.focus.x, bridge.focus.y, bridge.focus.z)],
+  // Kettle Brook reveals: from the cove path looking upstream (bridge -> mill -> spring under the hill)
+  bridge: [new THREE.Vector3(BRIDGE.x + 13, BRIDGE.y + 3.0, BRIDGE.z + 6.5), new THREE.Vector3(BRIDGE.x - 10, BRIDGE.y + 0.8, BRIDGE.z - 3)],
+  mill: [new THREE.Vector3(MILL.x + 6, MILL.y + 2.2, MILL.z + 11), new THREE.Vector3(MILL.x - 2.2, MILL.y + 0.3, MILL.z + 1.5)],
+  spring: (() => { const f = streamFrame(0.0), g = streamFrame(0.1); return [new THREE.Vector3(g.x + 3, g.level + 2.4, g.z + 6), new THREE.Vector3(f.x, f.level + 0.6, f.z)] as [THREE.Vector3, THREE.Vector3]; })(),
+  dale: [new THREE.Vector3(BRIDGE.x + 22, BRIDGE.y + 15, BRIDGE.z + 20), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z - 4)],
+  bridgeMap: [new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y + 75, BRIDGE.z + 1), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z)],
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
@@ -312,7 +319,7 @@ function frame(dt: number) {
   globalUniforms.uAmbient.value.copy(s.ambientSky);
   globalUniforms.uNight.value = s.night;
   globalUniforms.uCloudOff.value.set(clock * 1.6, clock * 0.55);
-  globalUniforms.uCloudAmt.value = 0.85 * (1 - s.night) * Math.min(1, s.sunIntensity / 1.5);
+  globalUniforms.uCloudAmt.value = (params.get('cs') === '0' ? 0 : 0.7) * (1 - s.night) * Math.min(1, s.sunIntensity / 1.5);
 
   // light: sun by day, moon by night (cool and dim)
   const lightDir = s.night > 0.55 ? s.moonDir : s.sunDir;
@@ -329,6 +336,7 @@ function frame(dt: number) {
   sky.update(s, clock);
   clouds.update(s, dt, wind);
   sea.update(s, fog);
+  brook.update(clock, dt);
   grass.update(s.ambientSky, s.ambientGround, s.sunIntensity);
 
   // lanterns + shoji glow
@@ -340,6 +348,7 @@ function frame(dt: number) {
 
   // smoke
   for (const sp of smoke) {
+    sp.visible = params.get('smoke') !== '0';
     const t = (sp.userData.phase + clock * 0.06) % 1;
     sp.position.copy(smokeOrigin).add(tmp.set(t * 3.5 * wind + Math.sin(t * 6 + clock * 0.7) * 0.5 + sp.userData.jit * t * 0.8, t * 6, t * 1.2 + sp.userData.jit * 0.3));
     const sz = 0.9 + t * 3.6;

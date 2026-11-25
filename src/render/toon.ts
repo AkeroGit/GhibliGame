@@ -27,13 +27,13 @@ float csH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float csN(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
   return mix(mix(csH(i),csH(i+vec2(1,0)),u.x), mix(csH(i+vec2(0,1)),csH(i+vec2(1,1)),u.x), u.y); }
 float cloudShadow(vec2 xz){
-  vec2 p = (xz + uCloudOff) * 0.032;
+  vec2 p = (xz + uCloudOff) * 0.02;
   float n = csN(p) * 0.6 + csN(p * 2.3 + 7.1) * 0.3 + csN(p * 5.1 - 3.7) * 0.1;
-  return smoothstep(0.46, 0.6, n) * uCloudAmt;
+  return smoothstep(0.44, 0.68, n) * uCloudAmt;
 }
 vec3 applyCloudShadow(vec3 col, vec2 xz){
   float c = cloudShadow(xz);
-  return mix(col, col * vec3(0.66, 0.72, 0.92), c);
+  return mix(col, col * vec3(0.8, 0.83, 0.93), c);
 }`;
 
 let ramp: THREE.DataTexture | null = null;

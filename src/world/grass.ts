@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mulberry32, fbm2, smoothstep } from '../lib/noise';
 import { globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
-import { heightAt, surfaceAt } from './terrain';
+import { heightAt, surfaceAt, streamDistAt, streamTAt, channelHalf } from './terrain';
 
 /**
  * Wind-blown grass: instanced tapered blades. Colour comes from the painted ground below,
@@ -50,11 +50,8 @@ export function createGrass(count = 140000, radius = 78) {
     const surf = surfaceAt(x, z);
     // authored clearings keep the shrine/bridge silhouettes readable from their reveal shots
     const shrineClear = Math.hypot(x - 30, z + 20) < 9;
-    const bridgeClear = Math.hypot(x - 2, z - 24) < 12 || (x > -1 && x < 8 && z > 27 && z < 40);
-    // reserve the stream's full visual corridor; the banks will be authored geometry
-    const streamCentre = 24 + Math.sin((x / 16) * Math.PI * 0.8) * 1.1;
-    const streamClear = x > -34 && x < 36 && Math.abs(z - streamCentre) < 3.1;
-    if (shrineClear || bridgeClear || streamClear) continue;
+    const streamClear = streamDistAt(x, z) < channelHalf(streamTAt(x, z)) + 0.8;
+    if (shrineClear || streamClear) continue;
     // clumpy density: meadows have thick and thin patches
     const clump = fbm2(x * 0.15 + 5, z * 0.15 - 3, 3);
     const keep = surf.grassiness * (0.35 + 0.9 * smoothstep(0.3, 0.6, clump));

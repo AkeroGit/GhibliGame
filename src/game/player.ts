@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { heightAt, slopeAt } from '../world/terrain';
+import { groundAt, heightAt, inBrook, slopeAt } from '../world/terrain';
 import { InputController } from './input';
 import { createCharacter, animateCharacter } from './character';
 import { clamp } from '../lib/noise';
@@ -49,9 +49,10 @@ export function createPlayer() {
       next.x = clamp(next.x, -edge, edge); next.z = clamp(next.z, -edge, edge);
       // avoid walking into steep rock faces / water; stay on the playable meadow
       const slope = slopeAt(next.x, next.z);
-      if (heightAt(next.x, next.z) < 0.15 || slope > 1.15) this.velocity.multiplyScalar(0.05);
+      const onDeck = groundAt(next.x, next.z) > heightAt(next.x, next.z) + 0.05;
+      if (!onDeck && (heightAt(next.x, next.z) < 0.15 || slope > 1.15 || inBrook(next.x, next.z))) this.velocity.multiplyScalar(0.05);
       else this.position.copy(next);
-      this.position.y = heightAt(this.position.x, this.position.z) + 0.02;
+      this.position.y = groundAt(this.position.x, this.position.z) + 0.02;
       this.speed = this.velocity.length();
       root.rotation.y = THREE.MathUtils.damp(root.rotation.y, this.heading, 11, dt);
 
