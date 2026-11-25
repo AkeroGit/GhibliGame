@@ -245,7 +245,21 @@ camera.lookAt(camLook);
 const input = new InputController(renderer.domElement);
 const player = createPlayer();
 player.position.set(7, heightAt(7, 7) + 0.02, 7);
-player.root.visible = playMode; // style-test shots stay clean
+const charShot = params.get('cam') === 'char';
+player.root.visible = playMode || charShot; // style-test shots stay clean
+if (charShot) {
+  // pose on the path in front of the tea house, three-quarter view
+  const px = HOUSE.x + 3.2, pz = HOUSE.z + 11.5;
+  player.position.set(px, heightAt(px, pz) + 0.02, pz);
+  player.heading = 0.75;
+  player.root.rotation.y = 0.75;
+  // three-quarter view; ?cd= distance, ?ch= camera height, ?cl= look height (face close-ups)
+  const cy = 0.75 - 0.42;
+  const cd = Number(params.get('cd') ?? 2.6), ch = Number(params.get('ch') ?? 1.15), cl = Number(params.get('cl') ?? 0.85);
+  presets.char = [new THREE.Vector3(px + Math.sin(cy) * cd, player.position.y + ch, pz + Math.cos(cy) * cd), new THREE.Vector3(px, player.position.y + cl, pz)];
+  camera.position.copy(presets.char[0]);
+  camera.lookAt(presets.char[1]);
+}
 scene.add(player.root);
 const followCamera = createFollowCamera(camera);
 followCamera.reset(player.root);
@@ -353,6 +367,11 @@ function frame(dt: number) {
     if (input.consumeResetCamera()) followCamera.reset(player.root);
     player.update(input, dt, followCamera.yaw, clock);
     followCamera.update(player.root, input, dt);
+  } else if (charShot) {
+    // hold the character framing (orbit drift would swing off a 1.5 m subject)
+    player.update(input, dt, followCamera.yaw, clock);
+    camera.position.copy(presets.char[0]);
+    camera.lookAt(presets.char[1]);
   } else if (!freeze) {
     orbitA += dt * 0.01;
     camera.position.set(orbitCentre.x + Math.cos(orbitA) * orbitR, camPos.y + Math.sin(clock * 0.2) * 0.15, orbitCentre.z + Math.sin(orbitA) * orbitR);

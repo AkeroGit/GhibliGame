@@ -37,6 +37,8 @@ const shots = [
   ['corner', 'ui=0&day=0.45&cam=corner'],
   ['cornerlow', 'ui=0&day=0.45&cam=cornerlow'],
   ['tip', 'ui=0&day=0.45&cam=tip'],
+  ['char', 'ui=0&day=0.62&cam=char'],
+  ['face', 'ui=0&day=0.62&cam=char&cd=0.9&ch=1.45&cl=1.42'],
 ].filter(([n]) => !only || only.split(',').includes(n));
 
 for (const [name, q] of shots) {
