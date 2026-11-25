@@ -50,8 +50,12 @@ export function createGrass(count = 140000, radius = 78) {
     const surf = surfaceAt(x, z);
     // authored clearings keep the shrine/bridge silhouettes readable from their reveal shots
     const shrineClear = Math.hypot(x - 30, z + 20) < 9;
-    const bridgeClear = Math.hypot(x - 2, z - 24) < 7;
-    if (shrineClear || bridgeClear) continue;
+    const bridgeClear = Math.hypot(x - 2, z - 24) < 12;
+    // reserve the stream's full visual corridor; the banks will be authored geometry
+    const streamZ = z - 24;
+    const streamCentre = 2 + Math.sin((streamZ / 23) * Math.PI * 1.2) * 0.8;
+    const streamClear = z > 0 && z < 48 && Math.abs(x - streamCentre) < 3.1;
+    if (shrineClear || bridgeClear || streamClear) continue;
     // clumpy density: meadows have thick and thin patches
     const clump = fbm2(x * 0.15 + 5, z * 0.15 - 3, 3);
     const keep = surf.grassiness * (0.35 + 0.9 * smoothstep(0.3, 0.6, clump));

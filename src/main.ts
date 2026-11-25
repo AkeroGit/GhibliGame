@@ -240,8 +240,8 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   cornerlow: [house.group.localToWorld(new THREE.Vector3(9.5, 2.2, 9.0)), house.group.localToWorld(new THREE.Vector3(5.2, 3.9, 3.8))],
   tip: [house.group.localToWorld(new THREE.Vector3(5.2, 3.6, 11.5)), house.group.localToWorld(new THREE.Vector3(5.6, 4.1, 4.6))],
   // high reveal camera: the shrine sits on the eastern shoulder; stay above the intervening ridge
-  shrine: [new THREE.Vector3(shrine.focus.x + 10, shrine.focus.y + 16, shrine.focus.z - 20), new THREE.Vector3(shrine.focus.x, shrine.focus.y + 0.8, shrine.focus.z)],
-  bridge: [new THREE.Vector3(bridge.focus.x + 8, bridge.focus.y + 4.2, bridge.focus.z + 10), bridge.focus],
+  shrine: [new THREE.Vector3(shrine.focus.x + 10, shrine.focus.y + 6.5, shrine.focus.z - 17), new THREE.Vector3(shrine.focus.x + 0.4, shrine.focus.y + 2.4, shrine.focus.z - 1.2)],
+  bridge: [new THREE.Vector3(bridge.focus.x - 15, bridge.focus.y + 9, bridge.focus.z - 15), new THREE.Vector3(bridge.focus.x + 3.5, bridge.focus.y + 1.8, bridge.focus.z + 10)],
 };
 HERO_TREE.y = heightAt(HERO_TREE.x, HERO_TREE.z);
 presets.tree = [new THREE.Vector3(HERO_TREE.x + 13, HERO_TREE.y + 3, HERO_TREE.z + 17), new THREE.Vector3(HERO_TREE.x - 4, HERO_TREE.y + 5.5, HERO_TREE.z - 2)];
