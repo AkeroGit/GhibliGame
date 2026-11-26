@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mulberry32, fbm2, smoothstep } from '../lib/noise';
 import { blob, merge, paint, place } from '../lib/geo';
 import { toon, globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
-import { heightAt, surfaceAt, pathDistAt, streamDistAt, streamTAt, channelHalf, HOUSE, HOUSE_ROT, HERO_TREE } from './terrain';
+import { heightAt, surfaceAt, pathDistAt, streamDistAt, streamTAt, channelHalf, HOUSE, HOUSE_ROT, HERO_TREE, MILL, MILL_YAW } from './terrain';
 
 /**
  * Cozy life layer:
@@ -56,7 +56,10 @@ export function createFlowers(count: number) {
     const s = surfaceAt(x, z);
     if (s.kind !== 'grass' || s.grassiness < 0.6) continue;
     const streamClear = streamDistAt(x, z) < channelHalf(streamTAt(x, z)) + 0.8;
-    if (streamClear) continue;
+    const mdx = x - MILL.x, mdz = z - MILL.z, mc = Math.cos(MILL_YAW), ms = Math.sin(MILL_YAW);
+    const mlx = mdx * mc - mdz * ms, mlz = mdx * ms + mdz * mc;
+    const millClear = Math.abs(mlx) < 3.9 && mlz > -4.6 && mlz < 3.4;
+    if (streamClear || millClear) continue;
     // clumps: low-frequency noise picks meadow patches; edges of path and house get extra
     const clump = fbm2(x * 0.09 + 31, z * 0.09 - 17, 3);
     const pd = pathDistAt(x, z);

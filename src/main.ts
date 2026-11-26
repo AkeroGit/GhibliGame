@@ -3,7 +3,7 @@ import { globalUniforms, toon } from './render/toon';
 import { createPost } from './render/post';
 import { dayState } from './world/daylight';
 import { createSky } from './world/sky';
-import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, SHRINE, BRIDGE, MILL, streamDistAt, streamFrame, surfaceAt } from './world/terrain';
+import { buildTerrain, heightAt, HOUSE, HOUSE_ROT, HERO_TREE, LOOKOUT, SHRINE, BRIDGE, BRIDGE_DIR, MILL, MILL_YAW, streamDistAt, streamFrame, surfaceAt } from './world/terrain';
 import { createSea } from './world/sea';
 import { createGrass } from './world/grass';
 import { createClouds } from './world/clouds';
@@ -247,6 +247,8 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   // Kettle Brook reveals: from the cove path looking upstream (bridge -> mill -> spring under the hill)
   bridge: [new THREE.Vector3(BRIDGE.x + 13, BRIDGE.y + 3.0, BRIDGE.z + 6.5), new THREE.Vector3(BRIDGE.x - 10, BRIDGE.y + 0.8, BRIDGE.z - 3)],
   mill: [new THREE.Vector3(MILL.x + 6, MILL.y + 2.2, MILL.z + 11), new THREE.Vector3(MILL.x - 2.2, MILL.y + 0.3, MILL.z + 1.5)],
+  millFront: [new THREE.Vector3(MILL.x - Math.sin(MILL_YAW) * 9 + Math.cos(MILL_YAW) * 4, MILL.y + 3.2, MILL.z - Math.cos(MILL_YAW) * 9 - Math.sin(MILL_YAW) * 4), new THREE.Vector3(MILL.x, MILL.y + 1.8, MILL.z)],
+  bridgeSide: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 8.5, BRIDGE.y + 1.4, BRIDGE.z - BRIDGE_DIR.x * 8.5), new THREE.Vector3(BRIDGE.x, BRIDGE.y + 0.7, BRIDGE.z)],
   spring: (() => { const f = streamFrame(0.0), g = streamFrame(0.1); return [new THREE.Vector3(g.x + 3, g.level + 2.4, g.z + 6), new THREE.Vector3(f.x, f.level + 0.6, f.z)] as [THREE.Vector3, THREE.Vector3]; })(),
   dale: [new THREE.Vector3(BRIDGE.x + 22, BRIDGE.y + 15, BRIDGE.z + 20), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z - 4)],
   bridgeMap: [new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y + 75, BRIDGE.z + 1), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z)],

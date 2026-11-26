@@ -34,6 +34,8 @@ const shots = [
   ['aerial', 'ui=0&day=0.45&cam=aerial'],
   ['shrine', 'ui=0&day=0.69&cam=shrine'],
   ['bridge', 'ui=0&day=0.62&cam=bridge'],
+  ['millFront', 'ui=0&day=0.62&cam=millFront'],
+  ['bridgeSide', 'ui=0&day=0.62&cam=bridgeSide'],
   ['mill', 'ui=0&day=0.62&cam=mill'],
   ['spring', 'ui=0&day=0.62&cam=spring'],
   ['dale', 'ui=0&day=0.62&cam=dale'],
