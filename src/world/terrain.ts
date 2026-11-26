@@ -288,6 +288,26 @@ bake();
   BRIDGE.set(x, streamNearest(x, z).level + 0.6, z);
 })();
 
+// bridge abutments: low stone blocks set into the bank top under each deck end. Earth is filled flush
+// with the coping on the path side and beside it, and rises to just under the coping on the water side,
+// so only the coping and one course show. brook.ts builds the stone to match BR_ABUT.
+const BR_ENDS = channelHalf(0.55) + 1.9;
+export const BR_ABUT = { face: BR_ENDS - 0.2, back: BR_ENDS + 0.8, half: 1.1 };
+(() => {
+  const yc = BRIDGE.y + 0.07, A = BR_ABUT;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = -HALF + i * RES, z = -HALF + j * RES, dx = x - BRIDGE.x, dz = z - BRIDGE.z;
+    const u = Math.abs(dx * BRIDGE_DIR.x + dz * BRIDGE_DIR.y), w = Math.abs(dx * BRIDGE_DIR.y - dz * BRIDGE_DIR.x);
+    if (u < A.face - 1.6 || u > A.back + 5 || w > A.half + 2.2) continue;
+    let target: number;
+    if (u >= A.face) target = yc - 0.02 - Math.max(0, w - A.half - 0.2) * 0.12 - Math.max(0, u - A.back - 0.5) * 0.05;
+    else target = yc - 0.2 - (A.face - u) * 0.55;               // bank face sloping to the water
+    const k = smoothstep(A.half + 2.2, A.half + 0.6, w) * smoothstep(A.back + 5, A.back + 1, u);
+    const h = heights[idx(i, j)];
+    heights[idx(i, j)] = u >= A.face ? lerp(h, target, k) : Math.max(h, lerp(h, target, k));
+  }
+})();
+
 /** Stream frame at arc parameter t: centre, tangent (flow), normal (to the left bank), water level. */
 export function streamFrame(t: number) {
   const f = frameXZ(t);
@@ -419,7 +439,10 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
   }
   // Worn dirt path with grassy, irregular edges.
   const edgeNoise = (fine - 0.5) * 0.7;
-  const pathT = smoothstep(1.35 + edgeNoise, 0.7 + edgeNoise, pd) * (sd0 < 12 ? smoothstep(channelHalf(st0) + 0.2, channelHalf(st0) + 0.9, sd0) : 1);
+  let pathT = smoothstep(1.35 + edgeNoise, 0.7 + edgeNoise, pd) * (sd0 < 12 ? smoothstep(channelHalf(st0) + 0.2, channelHalf(st0) + 0.9, sd0) : 1);
+  // bridge approach: worn dirt right up to the threshold stones
+  { const bx = x - BRIDGE.x, bz = z - BRIDGE.z, ba = Math.abs(bx * BRIDGE_DIR.x + bz * BRIDGE_DIR.y), bw = Math.abs(bx * BRIDGE_DIR.y - bz * BRIDGE_DIR.x);
+    if (ba > BR_ABUT.back - 0.2 && ba < BR_ABUT.back + 6) pathT = Math.max(pathT, smoothstep(1.5 + edgeNoise, 0.95 + edgeNoise, bw)); }
   if (pathT > 0) {
     tmpRock.copy(C.pathEdge).lerp(C.path, smoothstep(1.0, 0.3, pd));
     c.lerp(tmpRock, pathT);

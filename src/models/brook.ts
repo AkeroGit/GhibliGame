@@ -4,7 +4,7 @@ import { GLSL_NOISE, mulberry32 } from '../lib/noise';
 import { toon, globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
 import {
   heightAt, streamFrame, channelHalf, STREAM_LEN, WEIR_T, MILL, MILL_YAW, MILL_T, MILL_OFF,
-  BRIDGE, BRIDGE_DIR, walkSurfaces, streamNearest,
+  BRIDGE, BRIDGE_DIR, BR_ABUT, walkSurfaces, streamNearest,
 } from '../world/terrain';
 import type { PlaceLandmark } from './places';
 
@@ -185,7 +185,7 @@ function thatchRoof(len: number, span: number, rise: number, mat: THREE.Material
   const nT = Math.round(len / 0.07), tuft = new THREE.ConeGeometry(0.09, 1, 5); tuft.translate(0, -0.5, 0);
   const fr = new THREE.InstancedMesh(tuft, toon({ color: '#ffffff', rim: 0.2 }), nT * 2), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), rr = mulberry32(5);
   for (const sgn of [-1, 1]) for (let i = 0; i < nT; i++) {
-    const clump = 0.5 + 0.5 * Math.sin(i * 0.9 + sgn) * Math.sin(i * 0.37), h = (0.12 + rr() * 0.22 + clump * 0.28) * (rr() < 0.12 ? 0.3 : 1), row = i % 2;
+    const clump = 0.5 + 0.5 * Math.sin(i * 0.9 + sgn) * Math.sin(i * 0.37), h = (0.08 + rr() * 0.1 + clump * 0.12) * (rr() < 0.12 ? 0.35 : 1), row = i % 2;
     q.setFromEuler(new THREE.Euler(sgn * (0.25 + rr() * 0.2), 0, (rr() - 0.5) * 0.3));
     mm.compose(new THREE.Vector3(-len / 2 + 0.05 + (i + rr() * 0.6) * (len - 0.1) / nT, -T * 0.5 + 0.06 + row * 0.08, sgn * (half + 0.06 + row * 0.12 + rr() * 0.04)), q, new THREE.Vector3(1, h, 1));
     fr.setMatrixAt(sgn < 0 ? i : nT + i, mm);
@@ -209,9 +209,13 @@ function framedWindow(g: THREE.Object3D, x: number, y: number, z: number, ry: nu
   box(w, 0.05, 0.62, 0.07, frame, 0, 0, 0.03); box(w, 0.8, 0.05, 0.07, frame, 0, 0.05, 0.03);
   box(w, 1.0, 0.07, 0.22, frame, 0, -0.42, 0.08); // sill
   // flower box under the window
-  box(w, 0.9, 0.18, 0.2, m('#6e4a32', 0.3), 0, -0.55, 0.12);
-  const fl = [m('#e78fae', 0.5), m('#f6d36a', 0.5), m('#fff2e0', 0.5)];
-  for (let i = 0; i < 7; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), fl[i % 3]); b.position.set(-0.36 + i * 0.12, -0.43, 0.14 + (i % 2) * 0.04); w.add(b); }
+  box(w, 0.84, 0.2, 0.28, m('#6e4a32', 0.3), 0, -0.56, 0.06);
+  box(w, 0.78, 0.04, 0.22, m('#3d2c20', 0.2), 0, -0.47, 0.06);
+  for (const bx of [-0.3, 0.3]) { box(w, 0.07, 0.07, 0.26, frame, bx, -0.69, 0.06); const br = box(w, 0.06, 0.3, 0.06, frame, bx, -0.78, 0.0); br.rotation.x = -0.6; }
+  const fl = [m('#e78fae', 0.5), m('#f6d36a', 0.5), m('#fff2e0', 0.5), m('#c86a9a', 0.5)], lv = m('#5d8a41', 0.35);
+  const fr = mulberry32(Math.round(x * 13 + z * 7));
+  for (let i = 0; i < 12; i++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), lv); l.position.set(-0.34 + i * 0.062, -0.43, 0.02 + fr() * 0.14); l.scale.set(1.1, 0.7, 1); w.add(l); }
+  for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.075 + fr() * 0.025, 7, 5), fl[i % 4]); b.position.set(-0.36 + (i / 17) * 0.72 + (fr() - 0.5) * 0.05, -0.36 + fr() * 0.07, 0.0 + fr() * 0.16); w.add(b); }
   g.add(w);
 }
 
@@ -221,7 +225,7 @@ function createMill() {
   const stone = mw('#d4c6aa', 0.35), stoneDark = mw('#b9a98b', 0.35);
   const plaster = mw('#f1e6cd', 0.3), timber = m('#4f3a2c', 0.25), wood = m('#7a5638', 0.3);
   const thatch = m('#c29d5f', 0.45), thatchDark = m('#8d7046', 0.3);
-  const W = 4.6, D = 3.4, H = 2.4;
+  const W = 4.6, D = 3.4, H = 2.6;
   // brook side (+z): race level below the weir; pond level above it
   const race = streamFrame(MILL_T).level - MILL.y, pond = streamFrame(WEIR_T - 0.01).level - MILL.y;
   // coursed-stone ground storey: blocks in staggered rows, deep footing on the brook side
@@ -245,8 +249,8 @@ function createMill() {
   box(g, W, H, D, plaster, 0, footTop + H / 2 + 0.1, 0);
   const y0 = footTop + 0.1;
   for (const x of [-W / 2, -W / 6, W / 6, W / 2]) for (const z of [-D / 2 - 0.03, D / 2 + 0.03]) box(g, 0.2, H, 0.12, timber, x, y0 + H / 2, z);
-  for (const z of [-D / 2 - 0.04, D / 2 + 0.04]) { box(g, W + 0.1, 0.16, 0.12, timber, 0, y0 + 0.08, z); box(g, W + 0.1, 0.14, 0.12, timber, 0, y0 + H * 0.58, z); box(g, W + 0.1, 0.18, 0.14, timber, 0, y0 + H, z); }
-  for (const x of [-W / 2 - 0.03, W / 2 + 0.03]) { box(g, 0.12, 0.14, D, timber, x, y0 + H * 0.58, 0); for (const z of [-D / 2, D / 2]) box(g, 0.2, H, 0.2, timber, x, y0 + H / 2, z); }
+  for (const z of [-D / 2 - 0.04, D / 2 + 0.04]) { box(g, W + 0.1, 0.16, 0.12, timber, 0, y0 + 0.08, z); box(g, W + 0.1, 0.14, 0.12, timber, 0, y0 + H * 0.24, z); box(g, W + 0.1, 0.18, 0.14, timber, 0, y0 + H, z); }
+  for (const x of [-W / 2 - 0.03, W / 2 + 0.03]) { box(g, 0.12, 0.14, D, timber, x, y0 + H * 0.24, 0); for (const z of [-D / 2, D / 2]) box(g, 0.2, H, 0.2, timber, x, y0 + H / 2, z); }
   for (const z of [-D / 2 - 0.05, D / 2 + 0.05]) for (const [x0, sg] of [[-W / 2, 1], [W / 2, -1]] as const) {
     const br = box(g, 0.1, Math.hypot(W / 3, H * 0.42), 0.1, timber, x0 + sg * W / 6, y0 + H * 0.79, z); br.rotation.z = -sg * Math.atan2(W / 3, H * 0.42);
   }
@@ -275,48 +279,48 @@ function createMill() {
   const apronZ = -D / 2 - 0.95;
   box(g, W + 0.6, footTop + 1.4, 1.3, stoneDark, 0, (footTop - 1.4) / 2, apronZ);
   for (let i = 0; i < 6; i++) box(g, (W + 0.5) / 6 - 0.05, 0.06, 1.24, i % 2 ? stone : mw('#cbbd9f', 0.35), -(W + 0.5) / 2 + (i + 0.5) * ((W + 0.5) / 6), footTop + 0.02, apronZ);
-  box(g, 1.3, footTop + 1.1, 0.5, stone, 0.75, (footTop - 0.12) - (footTop + 1.1) / 2, apronZ - 0.85); // door step
+  box(g, 1.3, 1.3, 0.45, stone, 0, footTop - 0.17 - 0.65, apronZ - 0.85); box(g, 1.4, 1.3, 0.45, stoneDark, 0, footTop - 0.36 - 0.65, apronZ - 1.28); // door steps
   // door (planked, with strap hinges), lantern, windows
-  box(g, 1.0, 1.75, 0.1, wood, 0.75, y0 + 0.88, -D / 2 - 0.08);
-  for (const yy of [0.4, 1.35]) box(g, 0.8, 0.06, 0.04, m('#2e2a28', 0.2), 0.62, y0 + yy, -D / 2 - 0.14);
-  box(g, 1.3, 0.14, 0.34, timber, 0.75, y0 + 1.84, -D / 2 - 0.14);
+  box(g, 1.0, 1.75, 0.1, wood, 0, y0 + 0.88, -D / 2 - 0.08);
+  for (const yy of [0.4, 1.35]) box(g, 0.8, 0.06, 0.04, m('#2e2a28', 0.2), -0.13, y0 + yy, -D / 2 - 0.14);
+  box(g, 1.3, 0.14, 0.34, timber, 0, y0 + 1.84, -D / 2 - 0.14);
   // small door canopy
-  const can = box(g, 1.5, 0.08, 0.7, thatchDark, 0.75, y0 + 2.02, -D / 2 - 0.4); can.rotation.x = -0.35;
+  const can = box(g, 1.5, 0.08, 0.7, thatchDark, 0, y0 + 2.02, -D / 2 - 0.4); can.rotation.x = -0.35;
   const glow = toon({ color: '#ffd68a', emissive: '#ffae45', emissiveIntensity: 0.75, rim: 0.1 });
-  framedWindow(g, -1.15, y0 + 1.4, -D / 2 - 0.08, Math.PI, glow, timber);
-  framedWindow(g, W / 2 + 0.07, y0 + 1.25, -0.7, Math.PI / 2, glow, timber);
-  framedWindow(g, 1.1, y0 + 1.4, D / 2 + 0.08, 0, glow, timber);
-  const lamp = new THREE.Group(); lamp.position.set(1.6, y0 + 1.95, -D / 2 - 0.3);
+  framedWindow(g, -W / 3, y0 + 1.2, -D / 2 - 0.08, Math.PI, glow, timber);
+  framedWindow(g, W / 2 + 0.07, y0 + 1.2, -0.75, Math.PI / 2, glow, timber);
+  framedWindow(g, W / 3, y0 + 1.2, D / 2 + 0.08, 0, glow, timber);
+  const lamp = new THREE.Group(); lamp.position.set(0.68, y0 + 1.95, -D / 2 - 0.3);
   box(lamp, 0.05, 0.3, 0.05, timber, 0, 0.12, 0.12); cyl(lamp, 0.15, 0.12, 0.3, glow, 0, -0.12, 0, 8); cyl(lamp, 0.03, 0.2, 0.1, timber, 0, 0.06, 0, 8); g.add(lamp);
   // millstone leaning by the door, grain sacks, barrel, bench
-  const ms = cyl(g, 0.5, 0.5, 0.16, stone, -1.95, footTop + 0.55, -D / 2 - 0.28, 16); ms.rotation.x = Math.PI / 2 - 0.2; ms.position.z = -D / 2 - 0.45;
-  const eye = cyl(g, 0.11, 0.11, 0.18, stoneDark, -1.95, footTop + 0.55, -D / 2 - 0.29, 8); eye.rotation.x = Math.PI / 2 - 0.2; eye.position.z = -D / 2 - 0.46;
+  const ms = cyl(g, 0.5, 0.5, 0.16, stone, -0.95, footTop + 0.1, -D / 2 - 1.05, 16); void ms;
+  const eye = cyl(g, 0.11, 0.11, 0.18, stoneDark, -0.95, footTop + 0.11, -D / 2 - 1.05, 8); void eye;
   const sack = m('#dccb9e', 0.3);
-  for (const [x, z, k, ry] of [[-0.45, -D / 2 - 0.45, 1, 0.3], [-0.05, -D / 2 - 0.42, 0.9, -0.4], [-0.27, -D / 2 - 0.5, 0.8, 1.2]] as const) {
-    const sk = new THREE.Group(); sk.position.set(x, footTop + 0.05 + (k < 0.85 ? 0.5 : 0), z); sk.rotation.y = ry; g.add(sk);
+  for (const [x, z, k, ry] of [[0.72, -D / 2 - 0.42, 1, 0.3], [1.3, -D / 2 - 0.45, 0.9, -0.4]] as const) {
+    const sk = new THREE.Group(); sk.position.set(x, footTop + 0.05, z); sk.rotation.y = ry; g.add(sk);
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22 * k, 0.28 * k, 4, 10), sack); body.position.y = 0.36 * k; body.scale.set(1, 1, 0.75); body.castShadow = true; sk.add(body);
     const neck = cyl(sk, 0.07 * k, 0.12 * k, 0.14 * k, sack, 0, 0.78 * k, 0, 8); void neck;
     cyl(sk, 0.08 * k, 0.08 * k, 0.04, m('#8a6a3a', 0.3), 0, 0.73 * k, 0, 8);
   }
-  const barrel = cyl(g, 0.3, 0.27, 0.7, wood, 1.75, footTop + 0.4, -D / 2 - 0.5, 12); void barrel;
-  for (const yy of [0.16, 0.62]) cyl(g, 0.31, 0.31, 0.05, m('#3a3532', 0.2), 1.75, footTop + yy, -D / 2 - 0.5, 12);
+  const barrel = cyl(g, 0.3, 0.27, 0.7, wood, -2.0, footTop + 0.4, -D / 2 - 0.75, 12); void barrel;
+  for (const yy of [0.16, 0.62]) cyl(g, 0.31, 0.31, 0.05, m('#3a3532', 0.2), -2.0, footTop + yy, -D / 2 - 0.75, 12);
   // climbing rose on a little trellis beside the door
-  const rose = [m('#d9607a', 0.5), m('#f3a0b4', 0.5)], leaf = m('#4f7d3c', 0.35), lath = m('#d9c3a0', 0.35);
+  const rose = [m('#d9607a', 0.5), m('#f3a0b4', 0.5)], leaf = m('#4f7d3c', 0.35), lath = mw('#d9c3a0', 0.35);
   for (let k = 0; k < 7; k++) for (const sg2 of [-1, 1]) {
-    const l = box(g, 0.05, 2.6, 0.04, lath, 2.07 + (k - 3) * 0.13, y0 + 1.1, -D / 2 - 0.1); l.rotation.z = sg2 * 0.42;
+    const l = box(g, 0.05, 1.6, 0.04, lath, 1.62 + (k - 3) * 0.13, y0 + 0.85, -D / 2 - 0.1); l.rotation.z = sg2 * 0.42;
   }
-  box(g, 0.85, 0.06, 0.06, lath, 2.07, y0 + 2.25, -D / 2 - 0.1);
+  box(g, 0.85, 0.06, 0.06, lath, 1.62, y0 + 1.62, -D / 2 - 0.1);
   const rnd = mulberry32(77);
   for (let i = 0; i < 46; i++) {
-    const t = rnd(), x = 2.07 + (rnd() - 0.5) * (0.35 + t * 0.5), y = y0 + 0.1 + t * 2.15;
+    const t = rnd(), x = 1.62 + (rnd() - 0.5) * (0.35 + t * 0.5), y = y0 + 0.1 + t * 1.5;
     const lf = new THREE.Mesh(new THREE.SphereGeometry(0.07 + rnd() * 0.05, 5, 4), leaf); lf.position.set(x, y, -D / 2 - 0.15 - rnd() * 0.08); lf.scale.set(1.2, 0.8, 0.6); g.add(lf);
     if (rnd() < 0.3) { const r2 = new THREE.Mesh(new THREE.SphereGeometry(0.065, 6, 5), rose[i % 2]); r2.position.set(x, y + 0.03, -D / 2 - 0.24); g.add(r2); }
   }
 
   // breastshot wheel turning in the race, fed by a flume from the mill pond above the weir
   const wheel = new THREE.Group();
-  const R = 1.35, zc = D / 2 + 1.55, wx = -0.95;
-  const wy = race + R - 0.5; // rim dips 0.5 m into the race
+  const R = 1.1, zc = D / 2 + 1.45, wx = -0.95;
+  const wy = race + R - 0.45; // rim dips 0.45 m into the race; chute enters well above the hub
   wheel.position.set(wx, wy, zc);
   const wWood = m('#8c6646', 0.35), wDark = m('#5a4030', 0.25);
   for (const dz of [-0.36, 0.36]) {
@@ -329,6 +333,7 @@ function createMill() {
     pd.rotation.z = a;
   }
   const hub = cyl(wheel, 0.22, 0.22, 0.86, wDark, 0, 0, 0, 10); hub.rotation.x = Math.PI / 2;
+  wheel.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.receiveShadow = false; });
   g.add(wheel);
   const axle = cyl(g, 0.13, 0.13, zc - D / 2 + 0.9, wDark, wx, wy, D / 2 + (zc - D / 2 + 0.9) / 2, 10); axle.rotation.x = Math.PI / 2;
   box(g, 0.62, 0.5, 0.4, timber, wx, wy, D / 2 + 0.55); box(g, 0.74, 0.12, 0.46, wDark, wx, wy + 0.3, D / 2 + 0.55); // wall bearing
@@ -348,8 +353,8 @@ function createMill() {
   const chute = new THREE.Group(); chute.position.set((fx0 + fx1) / 2, (fy0 + fy1) / 2, 0); chute.rotation.z = tilt; fl.add(chute);
   box(chute, len, 0.08, 0.72, wood, 0, -0.18, 0);
   for (const s2 of [-1, 1]) box(chute, len, 0.34, 0.07, wood, 0, -0.02, s2 * 0.36);
-  const fw = new THREE.Mesh(new THREE.BoxGeometry(len, 0.04, 0.62), new THREE.MeshBasicMaterial({ color: '#a9dccf', transparent: true, opacity: 0.88 }));
-  fw.position.set(0, 0.0, 0); chute.add(fw);
+  const fw = new THREE.Mesh(new THREE.BoxGeometry(len, 0.1, 0.62), toon({ color: '#bfe6de', emissive: '#7fc2b6', emissiveIntensity: 0.3, rim: 0.5 }));
+  fw.position.set(0, 0.03, 0); chute.add(fw);
   for (const x of [fx0 + 0.35, (fx0 + fx1) / 2, fx1 - 0.2]) {
     const top = fy0 + (fy1 - fy0) * ((x - fx0) / (fx1 - fx0)) - 0.22;
     for (const s2 of [-1, 1]) box(fl, 0.1, top - race + 0.5, 0.1, timber, x, (top + race - 0.5) / 2, s2 * 0.32);
@@ -359,20 +364,21 @@ function createMill() {
   box(fl, 0.2, 0.14, 1.05, timber, fx0 + 0.1, fy0 + 1.0, 0);
   box(fl, 0.07, 0.42, 0.78, wood, fx0 + 0.1, fy0 + 0.62, 0);
   // water riding the buckets: foamy bands filling the upstream-lower quarter, visible on both wheel faces
-  const bucketMat = new THREE.MeshBasicMaterial({ color: '#f1faf8', transparent: true, opacity: 0.86, side: THREE.DoubleSide, depthWrite: false });
-  for (const zz of [-0.4, 0.4]) {
-    const ring = new THREE.Mesh(new THREE.RingGeometry(R - 0.5, R + 0.08, 24, 1, Math.PI * 0.95, 1.5), bucketMat);
-    ring.position.set(wx, wy, zz); fl.add(ring);
-  }
-  // the jet leaving the chute lip onto the first bucket
-  const jet = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.62), bucketMat);
-  jet.position.set(fx1 + 0.05, fy1 - 0.25, 0); jet.rotation.y = Math.PI / 2; fl.add(jet);
-  // splash where wheel meets the race
-  const foamM = new THREE.MeshBasicMaterial({ color: '#f4fbf9', transparent: true, opacity: 0.9 });
-  const sr = mulberry32(12);
-  for (let i = 0; i < 16; i++) {
-    const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14 + sr() * 0.16, 0), foamM);
-    f.position.set(wx - 0.9 + sr() * 1.9, race + 0.04 + sr() * 0.1, (sr() - 0.5) * 1.2); f.scale.y = 0.5; fl.add(f);
+  { // water carried down in the upstream buckets: a thick lumpy crescent between and just beyond the shrouds
+    const a0 = Math.PI - Math.asin(Math.min(0.95, (fy1 - wy) / R)), a1 = Math.PI * 1.5;
+    const sh = new THREE.Shape(), rin = R - 0.34, rout = R + 0.1, NS = 18;
+    for (let i = 0; i <= NS; i++) { const a = a0 + (i / NS) * (a1 - a0), j = 0.03 * Math.sin(i * 2.3); sh.lineTo !== undefined && (i === 0 ? sh.moveTo(Math.cos(a) * (rout + j), Math.sin(a) * (rout + j)) : sh.lineTo(Math.cos(a) * (rout + j), Math.sin(a) * (rout + j))); }
+    for (let i = NS; i >= 0; i--) { const a = a0 + (i / NS) * (a1 - a0), j = 0.05 * Math.sin(i * 1.7 + 1); sh.lineTo(Math.cos(a) * (rin + j), Math.sin(a) * (rin + j)); }
+    sh.closePath();
+    const cg = new THREE.ExtrudeGeometry(sh, { depth: 0.86, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 4 });
+    cg.translate(0, 0, -0.43);
+    const wMat = toon({ color: '#e6f6f2', emissive: '#a9dcd2', emissiveIntensity: 0.45, rim: 0.5 });
+    const cm = new THREE.Mesh(cg, wMat); cm.position.set(wx, wy, 0); fl.add(cm);
+    // spill from the chute lip into the first bucket
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.6), wMat); lip.position.set(fx1 + 0.02, fy1 - 0.1, 0); lip.rotation.z = -0.5; fl.add(lip);
+    // white water where the buckets empty into the race
+    const sr2 = mulberry32(13), sp = toon({ color: '#f6fcfb', emissive: '#d5eee9', emissiveIntensity: 0.4, rim: 0.4 });
+    for (let i = 0; i < 12; i++) { const b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12 + sr2() * 0.12, 1), sp); b2.position.set(wx - 0.5 + sr2() * 1.3, race + 0.04, (sr2() - 0.5) * 1.0); b2.scale.y = 0.4; fl.add(b2); }
   }
   g.add(fl);
   return { group: g, wheel };
@@ -409,7 +415,9 @@ function createWeir(): THREE.Group {
   // the water curtain spilling over the crest
   const curtain = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2 - 0.2, up - down + 0.1, 1, 1), new THREE.MeshBasicMaterial({ map: curtainTex(), color: '#eaf7f3', transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
   curtain.rotation.y = Math.PI / 2; curtain.rotation.z = 0; curtain.position.set(0.22, (up + down) / 2 - 0.02, 0); curtain.rotation.x = 0;
-  const cg = new THREE.Group(); cg.add(curtain); cg.rotation.z = -0.18; cg.position.set(0, 0, 0); g.add(cg);
+  const side = Math.sign((MILL.x - f.x) * Math.sin(g.rotation.y) + (MILL.z - f.z) * Math.cos(g.rotation.y)) || 1;
+  curtain.scale.x = 0.55; curtain.position.z = -side * hw * 0.42;
+  const cg = new THREE.Group(); cg.add(curtain); cg.rotation.z = -0.18; g.add(cg);
   // dressed stone cheeks set into each bank
   for (const s2 of [-1, 1]) {
     const c = box(g, 0.9, up - bed + 0.5, 0.6, stone, 0, (up + bed) / 2 + 0.15, s2 * (hw + 0.2));
@@ -426,7 +434,7 @@ function createBridge(): THREE.Group {
   g.position.set(BRIDGE.x, 0, BRIDGE.z); g.rotation.y = Math.atan2(BRIDGE_DIR.x, BRIDGE_DIR.y); // local z along the path
   const deck = m('#a77c55', 0.35), deckDk = m('#8a6444', 0.3), beam = m('#5e4130', 0.25);
   const red = m('#c0523b', 0.45), redDk = m('#93402f', 0.3), bronze = m('#b08a4a', 0.55);
-  const stone = m('#a19d90', 0.25), stoneDk = m('#7f7c72', 0.25);
+  const stone = mw('#cdbfa3', 0.3), stoneDk = mw('#b3a387', 0.3), stoneDk2 = mw('#a39378', 0.3);
   const ends = BR_L / 2;
   // curved stringers under the deck, plus a lower laminated arch visible from the side
   for (const x of [-0.78, 0.78]) {
@@ -440,12 +448,29 @@ function createBridge(): THREE.Group {
     const fas = new THREE.Mesh(tube(fp, 0.2, 0.2, 10, 40), red); fas.scale.set(0.42, 1, 1);
     const fg = new THREE.Group(); fg.position.x = Math.sign(x) * (BR_HALF_W + 0.06); fg.add(fas); g.add(fg);
   }
-  // planks: alternating tones, slight overhang, gaps
-  const n = 22;
-  for (let i = 0; i < n; i++) {
-    const u = -ends + (i + 0.5) * (BR_L / n);
-    const p = box(g, BR_HALF_W * 2 + 0.06, 0.08, BR_L / n - 0.035, i % 3 ? deck : deckDk, ((i * 7) % 3 - 1) * 0.015, deckY(u) - 0.05, u);
-    p.rotation.x = Math.atan(-8 * BR_A * u / (BR_L * BR_L));
+  // deck: planks share exact edges along the curve (no gaps, no stair steps); thin dark seams; solid underside
+  {
+    const pos: number[] = [], col: number[] = [], ind: number[] = [];
+    const hw = BR_HALF_W + 0.02, nP = 34, seam = 0.02;
+    const cA = new THREE.Color('#a87d56'), cB = new THREE.Color('#93694a'), cS = new THREE.Color('#4a3424'), cU = new THREE.Color('#5e4130');
+    const quad = (u0: number, u1: number, yo: number, c: THREE.Color, down = false) => {
+      const k = pos.length / 3, y0 = deckY(u0) + yo, y1 = deckY(u1) + yo;
+      pos.push(-hw, y0, u0, hw, y0, u0, hw, y1, u1, -hw, y1, u1);
+      for (let q = 0; q < 4; q++) col.push(c.r, c.g, c.b);
+      if (down) ind.push(k, k + 1, k + 2, k, k + 2, k + 3); else ind.push(k, k + 2, k + 1, k, k + 3, k + 2);
+    };
+    const pr = mulberry32(21);
+    for (let i = 0; i < nP; i++) {
+      const u0 = -ends + (i / nP) * BR_L, u1 = -ends + ((i + 1) / nP) * BR_L;
+      quad(u0, u0 + seam, 0, cS);
+      quad(u0 + seam, u1, 0, cA.clone().lerp(cB, pr()));
+    }
+    for (let i = 0; i < nP; i++) quad(-ends + (i / nP) * BR_L, -ends + ((i + 1) / nP) * BR_L, -0.1, cU, true);
+    const dg = new THREE.BufferGeometry();
+    dg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); dg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); dg.setIndex(ind);
+    dg.computeVertexNormals();
+    const dm = new THREE.Mesh(dg, toon({ vertexColors: true, rim: 0.25 })); dm.receiveShadow = dm.castShadow = true; g.add(dm);
+    void deck; void deckDk;
   }
   // vermilion railings: posts, top rail (kasagi) and mid rail, bronze giboshi on the end posts
   for (const x of [-BR_HALF_W, BR_HALF_W]) {
@@ -464,37 +489,29 @@ function createBridge(): THREE.Group {
       }
     }
   }
-  // dressed-stone abutments: a sunk stone pier under each deck end, wing walls curving into the bank
+  // stone abutments: low coursed blocks set into the bank top under each deck end; the coping is the threshold
+  const slab = mw('#ddd2bb', 0.35), slab2 = mw('#cfc3a9', 0.35);
+  const yc = BRIDGE.y + 0.07;
+  const f = BR_ABUT.face, bk = BR_ABUT.back, hw = BR_ABUT.half, depth = bk - f;
   for (const sgn of [-1, 1]) {
-    const u0 = sgn * (ends - 0.75);
-    const top = deckY(u0) - 0.26;
+    const pr = mulberry32(sgn > 0 ? 61 : 62);
     let lo = Infinity;
-    for (const xx of [-1.3, 0, 1.3]) for (const uu of [u0 - 0.5, u0, u0 + 0.5]) {
-      const wx = BRIDGE.x + BRIDGE_DIR.y * xx + BRIDGE_DIR.x * uu, wz = BRIDGE.z - BRIDGE_DIR.x * xx + BRIDGE_DIR.y * uu;
+    for (const xx of [-hw, 0, hw]) for (const uu of [f - 0.3, f, (f + bk) / 2]) {
+      const wx = BRIDGE.x + BRIDGE_DIR.y * xx + BRIDGE_DIR.x * sgn * uu, wz = BRIDGE.z - BRIDGE_DIR.x * xx + BRIDGE_DIR.y * sgn * uu;
       lo = Math.min(lo, heightAt(wx, wz));
     }
-    const bot = lo - 1.0, hgt = top - bot, rows = Math.max(2, Math.round(hgt / 0.3));
-    for (let r = 0; r < rows; r++) {
-      const h = hgt / rows, y = top - h / 2 - r * h;
-      for (let k = 0; k < 3; k++) {
-        const bl = box(g, 0.74 + ((r + k) % 2) * 0.12, h - 0.03, 0.9, (r + k) % 2 ? stone : stoneDk, (k - 1) * 0.82 + (r % 2 ? 0.1 : -0.05), y, u0);
-        bl.rotation.y = ((r * 3 + k) % 5 - 2) * 0.015;
-      }
+    const bot = lo - 0.5;
+    box(g, hw * 2 - 0.06, yc - 0.1 - bot, depth - 0.06, stoneDk2, 0, (yc - 0.1 + bot) / 2, sgn * (f + bk) / 2);
+    // water face: two visible courses of dressed blocks, the rest buried
+    for (let r = 0; r < 3; r++) {
+      const rh = 0.26, y = yc - 0.16 - rh / 2 - r * rh;
+      let w = -hw, k = 0;
+      while (w < hw - 0.01) { const bw = Math.min(hw - w, 0.45 + pr() * 0.3 + (r % 2) * 0.1); box(g, bw - 0.03, rh - 0.03, 0.24, (r + k) % 2 ? stone : stoneDk, w + bw / 2, y, sgn * (f + 0.1)); w += bw; k++; }
     }
-    box(g, 2.6, 0.1, 1.0, stoneDk, 0, top + 0.04, u0);
-    // pale flagstone landing: slabs stepping from the deck lip down to the path, clearly read as steps
-    const slab = m('#d8cfbc', 0.35), slab2 = m('#c7bda8', 0.35);
-    const yEnd = deckY(sgn * ends) - 0.02;
-    for (let k = 0; k < 4; k++) {
-      const uu = sgn * (ends + 0.25 + 0.5 * k);
-      const gy = heightAt(BRIDGE.x + BRIDGE_DIR.x * uu, BRIDGE.z + BRIDGE_DIR.y * uu);
-      const top = Math.max(gy + 0.12, yEnd - (yEnd - gy - 0.12) * ((k + 1) / 4));
-      const h = top - gy + 0.4;
-      const st = box(g, 2.15 - k * 0.08, h, 0.48, k % 2 ? slab : slab2, ((k * 5) % 3 - 1) * 0.04, top - h / 2, uu);
-      st.rotation.y = ((k * 7) % 5 - 2) * 0.025;
-    }
+    let w = -hw - 0.04, k = 0;
+    while (w < hw + 0.03) { const bw = Math.min(hw + 0.04 - w, 0.6 + pr() * 0.35); box(g, bw - 0.025, 0.16, depth + 0.06, k % 2 ? slab : slab2, w + bw / 2, yc - 0.08, sgn * ((f + bk) / 2 - 0.03)); w += bw; k++; }
     // a small stone lantern on the downstream side of each end
-    const lx = sgn > 0 ? -1.45 : 1.45, lu = sgn * (ends + 0.15);
+    const lx = sgn > 0 ? -1.55 : 1.55, lu = sgn * (ends + 0.55);
     const lwx = BRIDGE.x + BRIDGE_DIR.y * lx + BRIDGE_DIR.x * lu, lwz = BRIDGE.z - BRIDGE_DIR.x * lx + BRIDGE_DIR.y * lu;
     const ly = heightAt(lwx, lwz);
     const lan = new THREE.Group(); lan.position.set(lx, ly, lu); g.add(lan);
@@ -540,7 +557,7 @@ function createBanks(): THREE.Group {
       const t = t0 + (rand() - 0.5) * 0.03, f = streamFrame(t);
       const off = channelHalf(t) - 0.2 + rand() * 0.9;
       const x = f.x + f.nx * side * off, z = f.z + f.nz * side * off;
-      if (near(x, z, BRIDGE.x, BRIDGE.z, 3.6) || near(x, z, wheelW.x, wheelW.z, MILL_OFF + 2.5) || Math.abs(t - WEIR_T) < 0.02) continue;
+      if (near(x, z, BRIDGE.x, BRIDGE.z, 6.5) || near(x, z, wheelW.x, wheelW.z, MILL_OFF + 2.5) || Math.abs(t - WEIR_T) < 0.02) continue;
       rockAt(x, z, (k === 0 ? 0.55 : 0.22) + rand() * 0.35, 0.3, 0.7);
     }
   }

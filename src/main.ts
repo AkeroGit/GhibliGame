@@ -248,6 +248,15 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   bridge: [new THREE.Vector3(BRIDGE.x + 13, BRIDGE.y + 3.0, BRIDGE.z + 6.5), new THREE.Vector3(BRIDGE.x - 10, BRIDGE.y + 0.8, BRIDGE.z - 3)],
   mill: [new THREE.Vector3(MILL.x + 6, MILL.y + 2.2, MILL.z + 11), new THREE.Vector3(MILL.x - 2.2, MILL.y + 0.3, MILL.z + 1.5)],
   millFront: [new THREE.Vector3(MILL.x - Math.sin(MILL_YAW) * 9 + Math.cos(MILL_YAW) * 4, MILL.y + 3.2, MILL.z - Math.cos(MILL_YAW) * 9 - Math.sin(MILL_YAW) * 4), new THREE.Vector3(MILL.x, MILL.y + 1.8, MILL.z)],
+  // detail checks: each bridge end (water side + path side), the deck from above, window boxes
+  brEndN: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 4.2 + BRIDGE_DIR.x * 6.5, BRIDGE.y + 0.9, BRIDGE.z - BRIDGE_DIR.x * 4.2 + BRIDGE_DIR.y * 6.5), new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.x * 3.2, BRIDGE.y - 0.1, BRIDGE.z + BRIDGE_DIR.y * 3.2)],
+  brEndS: [new THREE.Vector3(BRIDGE.x - BRIDGE_DIR.y * 4.2 - BRIDGE_DIR.x * 6.5, BRIDGE.y + 0.9, BRIDGE.z + BRIDGE_DIR.x * 4.2 - BRIDGE_DIR.y * 6.5), new THREE.Vector3(BRIDGE.x - BRIDGE_DIR.x * 3.2, BRIDGE.y - 0.1, BRIDGE.z - BRIDGE_DIR.y * 3.2)],
+  brWater: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 3.6, BRIDGE.y - 0.2, BRIDGE.z - BRIDGE_DIR.x * 3.6), new THREE.Vector3(BRIDGE.x, BRIDGE.y - 0.1, BRIDGE.z)],
+  brDeck: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 1.6 - BRIDGE_DIR.x * 4.5, BRIDGE.y + 3.4, BRIDGE.z - BRIDGE_DIR.x * 1.6 - BRIDGE_DIR.y * 4.5), new THREE.Vector3(BRIDGE.x, BRIDGE.y + 0.9, BRIDGE.z)],
+  millWin: [new THREE.Vector3(MILL.x - Math.sin(MILL_YAW) * 4.2 + Math.cos(MILL_YAW) * 2.4, MILL.y + 1.9, MILL.z - Math.cos(MILL_YAW) * 4.2 - Math.sin(MILL_YAW) * 2.4), new THREE.Vector3(MILL.x - Math.sin(MILL_YAW) * 1.7 - Math.cos(MILL_YAW) * 1.1, MILL.y + 1.55, MILL.z - Math.cos(MILL_YAW) * 1.7 + Math.sin(MILL_YAW) * 1.1)],
+  wheel: [new THREE.Vector3(MILL.x + Math.sin(MILL_YAW) * 7.5 - Math.cos(MILL_YAW) * 2.0, MILL.y + 2.0, MILL.z + Math.cos(MILL_YAW) * 7.5 + Math.sin(MILL_YAW) * 2.0), new THREE.Vector3(MILL.x - Math.cos(MILL_YAW) * 0.95 + Math.sin(MILL_YAW) * 3.2, MILL.y - 0.6, MILL.z + Math.sin(MILL_YAW) * 0.95 + Math.cos(MILL_YAW) * 3.2)],
+  millBox: (() => { const L = (x: number, y: number, z: number) => new THREE.Vector3(MILL.x + x * Math.cos(MILL_YAW) + z * Math.sin(MILL_YAW), MILL.y + y, MILL.z - x * Math.sin(MILL_YAW) + z * Math.cos(MILL_YAW));
+    return [L(-3.4, 1.55, -2.7), L(-1.53, 1.15, -1.75)] as [THREE.Vector3, THREE.Vector3]; })(),
   bridgeSide: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 8.5, BRIDGE.y + 1.4, BRIDGE.z - BRIDGE_DIR.x * 8.5), new THREE.Vector3(BRIDGE.x, BRIDGE.y + 0.7, BRIDGE.z)],
   spring: (() => { const f = streamFrame(0.0), g = streamFrame(0.1); return [new THREE.Vector3(g.x + 3, g.level + 2.4, g.z + 6), new THREE.Vector3(f.x, f.level + 0.6, f.z)] as [THREE.Vector3, THREE.Vector3]; })(),
   dale: [new THREE.Vector3(BRIDGE.x + 22, BRIDGE.y + 15, BRIDGE.z + 20), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z - 4)],
