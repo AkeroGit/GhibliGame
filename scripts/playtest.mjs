@@ -23,7 +23,7 @@ await page.mouse.move(720, 360, { steps: 4 });
 await page.waitForTimeout(600);
 await page.keyboard.press('KeyR');
 await page.waitForTimeout(400);
-await page.screenshot({ path: 'docs/shots/playtest.png' });
+await page.screenshot({ path: 'docs/shots/playtest.png', timeout: 120000 });
 await browser.close();
 server.close();
 if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
