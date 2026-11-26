@@ -55,7 +55,8 @@ export function createGrass(count = 140000, radius = 78) {
     const mlx = mdx * mc - mdz * ms, mlz = mdx * ms + mdz * mc;
     const millClear = Math.abs(mlx) < 3.9 && mlz > -4.6 && mlz < 3.4;
     const bdx = x - BRIDGE.x, bdz = z - BRIDGE.z, bAlong = bdx * BRIDGE_DIR.x + bdz * BRIDGE_DIR.y, bAcross = bdx * BRIDGE_DIR.y - bdz * BRIDGE_DIR.x;
-    const bridgeClear = Math.abs(bAcross) < 2.3 && Math.abs(bAlong) < 10.5;
+    // keep the deck and the path clear; let grass grow right up to the threshold and the wall-top cap
+    const bridgeClear = Math.abs(bAlong) < 10.5 && Math.abs(bAcross) < (Math.abs(bAlong) < 3.4 ? 1.45 : 1.9);
     if (shrineClear || streamClear || millClear || bridgeClear) continue;
     // clumpy density: meadows have thick and thin patches
     const clump = fbm2(x * 0.15 + 5, z * 0.15 - 3, 3);

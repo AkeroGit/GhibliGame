@@ -346,14 +346,15 @@ function createMill() {
   g.updateMatrixWorld(true);
   const wf = streamFrame(WEIR_T);
   const weirLocal = g.worldToLocal(new THREE.Vector3(wf.x, 0, wf.z));
-  const fx0 = weirLocal.x - 0.15, fx1 = wx - R - 0.08;
-  const fy0 = pond - 0.06, fy1 = wy + 0.05;
+  const fy0 = pond - 0.06, fy1 = Math.min(pond - 0.14, wy + R * 0.55);
+  const fx0 = weirLocal.x - 0.15, fx1 = wx - Math.sqrt(Math.max(0, R * R - (fy1 - wy) ** 2)) - 0.22;
   const fl = new THREE.Group(); fl.position.set(0, 0, zc);
   const len = Math.hypot(fx1 - fx0, fy1 - fy0), tilt = Math.atan2(fy1 - fy0, fx1 - fx0);
   const chute = new THREE.Group(); chute.position.set((fx0 + fx1) / 2, (fy0 + fy1) / 2, 0); chute.rotation.z = tilt; fl.add(chute);
   box(chute, len, 0.08, 0.72, wood, 0, -0.18, 0);
   for (const s2 of [-1, 1]) box(chute, len, 0.34, 0.07, wood, 0, -0.02, s2 * 0.36);
-  const fw = new THREE.Mesh(new THREE.BoxGeometry(len, 0.1, 0.62), toon({ color: '#bfe6de', emissive: '#7fc2b6', emissiveIntensity: 0.3, rim: 0.5 }));
+  const fwg = new THREE.BoxGeometry(len, 0.1, 0.62); fwg.rotateY(Math.PI / 2); fwg.rotateY(-Math.PI / 2);
+  const fw = new THREE.Mesh(fwg, flowMat([1, 3]));
   fw.position.set(0, 0.03, 0); chute.add(fw);
   for (const x of [fx0 + 0.35, (fx0 + fx1) / 2, fx1 - 0.2]) {
     const top = fy0 + (fy1 - fy0) * ((x - fx0) / (fx1 - fx0)) - 0.22;
@@ -364,27 +365,44 @@ function createMill() {
   box(fl, 0.2, 0.14, 1.05, timber, fx0 + 0.1, fy0 + 1.0, 0);
   box(fl, 0.07, 0.42, 0.78, wood, fx0 + 0.1, fy0 + 0.62, 0);
   // water riding the buckets: foamy bands filling the upstream-lower quarter, visible on both wheel faces
-  { // water carried down in the upstream buckets: a thick lumpy crescent between and just beyond the shrouds
-    const a0 = Math.PI - Math.asin(Math.min(0.95, (fy1 - wy) / R)), a1 = Math.PI * 1.5;
-    const sh = new THREE.Shape(), rin = R - 0.34, rout = R + 0.1, NS = 18;
-    for (let i = 0; i <= NS; i++) { const a = a0 + (i / NS) * (a1 - a0), j = 0.03 * Math.sin(i * 2.3); sh.lineTo !== undefined && (i === 0 ? sh.moveTo(Math.cos(a) * (rout + j), Math.sin(a) * (rout + j)) : sh.lineTo(Math.cos(a) * (rout + j), Math.sin(a) * (rout + j))); }
-    for (let i = NS; i >= 0; i--) { const a = a0 + (i / NS) * (a1 - a0), j = 0.05 * Math.sin(i * 1.7 + 1); sh.lineTo(Math.cos(a) * (rin + j), Math.sin(a) * (rin + j)); }
-    sh.closePath();
-    const cg = new THREE.ExtrudeGeometry(sh, { depth: 0.86, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 4 });
-    cg.translate(0, 0, -0.43);
-    const wMat = toon({ color: '#e6f6f2', emissive: '#a9dcd2', emissiveIntensity: 0.45, rim: 0.5 });
-    const cm = new THREE.Mesh(cg, wMat); cm.position.set(wx, wy, 0); fl.add(cm);
-    // spill from the chute lip into the first bucket
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.6), wMat); lip.position.set(fx1 + 0.02, fy1 - 0.1, 0); lip.rotation.z = -0.5; fl.add(lip);
-    // white water where the buckets empty into the race
-    const sr2 = mulberry32(13), sp = toon({ color: '#f6fcfb', emissive: '#d5eee9', emissiveIntensity: 0.4, rim: 0.4 });
-    for (let i = 0; i < 12; i++) { const b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12 + sr2() * 0.12, 1), sp); b2.position.set(wx - 0.5 + sr2() * 1.3, race + 0.04, (sr2() - 0.5) * 1.0); b2.scale.y = 0.4; fl.add(b2); }
+  { // breastshot: a curved timber breast follows the wheel from the chute lip down to the race and holds the
+    // water in the buckets. The water shows as a moving sheet between the paddle tips and the breast.
+    const a0 = Math.PI - Math.asin(Math.min(0.95, (fy1 - wy) / R)), a1 = Math.PI * 1.5 + 0.1, NS = 14;
+    const arcPts = (r: number, zz: number) => { const p: number[] = []; for (let i = 0; i <= NS; i++) { const a = a0 + (i / NS) * (a1 - a0); p.push(wx + Math.cos(a) * r, wy + Math.sin(a) * r, zz); } return p; };
+    const strip = (r0: number, r1: number, zz: number, mat: THREE.Material, vAlong = true) => {
+      const A = arcPts(r0, zz), B = arcPts(r1, zz), pos: number[] = [], uv: number[] = [], ix: number[] = [];
+      for (let i = 0; i <= NS; i++) { pos.push(A[i * 3], A[i * 3 + 1], A[i * 3 + 2], B[i * 3], B[i * 3 + 1], B[i * 3 + 2]); uv.push(0, i / NS, 1, i / NS); if (i < NS) { const k = i * 2; ix.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(ix); geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, mat); (mat as THREE.Material).side = THREE.DoubleSide; void vAlong; fl.add(mesh); return mesh;
+    };
+    // the breast: a curved sheet of boards (an annulus band seen edge-on) with side cheeks
+    const breastR = R + 0.16, bw = 0.42;
+    for (let i = 0; i < NS; i++) {
+      const a = a0 + ((i + 0.5) / NS) * (a1 - a0), segL = breastR * (a1 - a0) / NS + 0.02;
+      const bd = box(fl, 0.06, segL, bw * 2, i % 2 ? wood : timber, wx + Math.cos(a) * (breastR + 0.03), wy + Math.sin(a) * (breastR + 0.03), 0); bd.rotation.z = a;
+    }
+    for (const zz of [-bw - 0.02, bw + 0.02]) strip(breastR - 0.03, breastR + 0.08, zz, timber);
+    // water riding the buckets, visible between the shrouds
+    const wMat = flowMat([0.5, 2.5]);
+    for (const zz of [-0.4, -0.2, 0, 0.2, 0.4]) strip(R - 0.3, breastR - 0.02, zz, wMat);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, bw * 2 - 0.05), wMat); top.position.set(fx1 + 0.05, fy1 - 0.02, 0); fl.add(top);
   }
   g.add(fl);
   return { group: g, wheel };
 }
 
 // ---------------------------------------------------------------- weir
+const flowTex: THREE.CanvasTexture[] = [];
+function flowMat(rep: [number, number]): THREE.MeshToonMaterial {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+  const x = c.getContext('2d')!, rnd = mulberry32(17 + flowTex.length);
+  x.fillStyle = '#7fcabd'; x.fillRect(0, 0, 64, 128);
+  for (let i = 0; i < 46; i++) { const px = rnd() * 64, w = 1 + rnd() * 3, l = 20 + rnd() * 60, py = rnd() * 128; x.fillStyle = `rgba(240,252,249,${0.35 + rnd() * 0.5})`; x.fillRect(px, py, w, l); x.fillRect(px, py - 128, w, l); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); t.colorSpace = THREE.SRGBColorSpace;
+  flowTex.push(t);
+  return toon({ color: '#ffffff', map: t, emissive: '#2f6f66', emissiveIntensity: 0.25, rim: 0.45 });
+}
+
 let _ct: THREE.CanvasTexture | null = null;
 function curtainTex(): THREE.CanvasTexture {
   if (_ct) return _ct;
@@ -427,8 +445,8 @@ function createWeir(): THREE.Group {
 }
 
 // ---------------------------------------------------------------- bridge
-const BR_L = 2 * (channelHalf(0.55) + 1.9), BR_A = 1.05, BR_HALF_W = 0.95;
-const deckY = (u: number) => BRIDGE.y + 0.12 + BR_A * (1 - (2 * u / BR_L) ** 2);
+const BR_L = 2 * BR_ABUT.ends, BR_A = 0.95, BR_HALF_W = 0.95;
+const deckY = (u: number) => BR_ABUT.coping + 0.04 + BR_A * (1 - (2 * u / BR_L) ** 2);
 function createBridge(): THREE.Group {
   const g = new THREE.Group();
   g.position.set(BRIDGE.x, 0, BRIDGE.z); g.rotation.y = Math.atan2(BRIDGE_DIR.x, BRIDGE_DIR.y); // local z along the path
@@ -439,13 +457,13 @@ function createBridge(): THREE.Group {
   // curved stringers under the deck, plus a lower laminated arch visible from the side
   for (const x of [-0.78, 0.78]) {
     const top = [], arch = [];
-    for (let i = 0; i <= 12; i++) { const u = -ends - 0.3 + (i / 12) * (BR_L + 0.6); top.push(new THREE.Vector3(x, deckY(u) - 0.2, u)); }
+    for (let i = 0; i <= 12; i++) { const u = -ends + 0.05 + (i / 12) * (BR_L - 0.1); top.push(new THREE.Vector3(x, deckY(u) - 0.2, u)); }
     for (let i = 0; i <= 12; i++) { const u = -ends + 0.2 + (i / 12) * (BR_L - 0.4); arch.push(new THREE.Vector3(x, deckY(u) - 0.55 - 0.25 * (1 - (2 * u / BR_L) ** 2), u)); }
     const st = new THREE.Mesh(tube(top, 0.14, 0.14, 6, 30), beam); st.castShadow = true; g.add(st);
     void arch;
     const fp = [];
-    for (let i = 0; i <= 16; i++) { const u = -ends - 0.2 + (i / 16) * (BR_L + 0.4); fp.push(new THREE.Vector3(0, deckY(u) - 0.2, u)); }
-    const fas = new THREE.Mesh(tube(fp, 0.2, 0.2, 10, 40), red); fas.scale.set(0.42, 1, 1);
+    for (let i = 0; i <= 16; i++) { const u = -ends + 0.02 + (i / 16) * (BR_L - 0.04); fp.push(new THREE.Vector3(0, deckY(u) - 0.16, u)); }
+    const fas = new THREE.Mesh(tube(fp, 0.16, 0.16, 10, 40), red); fas.scale.set(0.5, 1, 1);
     const fg = new THREE.Group(); fg.position.x = Math.sign(x) * (BR_HALF_W + 0.06); fg.add(fas); g.add(fg);
   }
   // deck: planks share exact edges along the curve (no gaps, no stair steps); thin dark seams; solid underside
@@ -489,31 +507,54 @@ function createBridge(): THREE.Group {
       }
     }
   }
-  // stone abutments: low coursed blocks set into the bank top under each deck end; the coping is the threshold
-  const slab = mw('#ddd2bb', 0.35), slab2 = mw('#cfc3a9', 0.35);
-  const yc = BRIDGE.y + 0.07;
-  const f = BR_ABUT.face, bk = BR_ABUT.back, hw = BR_ABUT.half, depth = bk - f;
+  // stone abutments. Per end: a coursed wall standing in the brook along the bank, whose ends run on into
+  // earth banks piled against it; dressed coping slabs under the deck end (the threshold), a cap course
+  // along the rest of the wall top, a solid core, and riprap at the foot.
+  const slab = mw('#c8bba0', 0.3), slab2 = mw('#b9ab90', 0.3);
+  const yc = BR_ABUT.coping;
+  const f = BR_ABUT.face, bk = BR_ABUT.back, hw = BR_ABUT.wide, wr = BR_ABUT.wing, depth = bk - f;
+  const lvl = streamNearest(BRIDGE.x, BRIDGE.z).level;
   for (const sgn of [-1, 1]) {
     const pr = mulberry32(sgn > 0 ? 61 : 62);
-    let lo = Infinity;
-    for (const xx of [-hw, 0, hw]) for (const uu of [f - 0.3, f, (f + bk) / 2]) {
-      const wx = BRIDGE.x + BRIDGE_DIR.y * xx + BRIDGE_DIR.x * sgn * uu, wz = BRIDGE.z - BRIDGE_DIR.x * xx + BRIDGE_DIR.y * sgn * uu;
-      lo = Math.min(lo, heightAt(wx, wz));
+    const toe = lvl - 0.45, fy = yc - 0.24;
+    const rows = Math.max(2, Math.round((fy - toe) / 0.28)), rh = (fy - toe) / rows;
+    for (let r = 0; r < rows; r++) {
+      const y = fy - rh / 2 - r * rh;
+      let w = -wr, k = 0;
+      while (w < wr - 0.01) { const bw = Math.min(wr - w, 0.42 + pr() * 0.3 + (r % 2) * 0.12); box(g, bw - 0.03, rh - 0.03, 0.32, (r + k) % 2 ? stone : stoneDk, w + bw / 2, y, sgn * (f + 0.13)); w += bw; k++; }
     }
-    const bot = lo - 0.5;
-    box(g, hw * 2 - 0.06, yc - 0.1 - bot, depth - 0.06, stoneDk2, 0, (yc - 0.1 + bot) / 2, sgn * (f + bk) / 2);
-    // water face: two visible courses of dressed blocks, the rest buried
-    for (let r = 0; r < 3; r++) {
-      const rh = 0.26, y = yc - 0.16 - rh / 2 - r * rh;
-      let w = -hw, k = 0;
-      while (w < hw - 0.01) { const bw = Math.min(hw - w, 0.45 + pr() * 0.3 + (r % 2) * 0.1); box(g, bw - 0.03, rh - 0.03, 0.24, (r + k) % 2 ? stone : stoneDk, w + bw / 2, y, sgn * (f + 0.1)); w += bw; k++; }
+    box(g, wr * 2 - 0.1, yc - 0.1 - toe, depth - 0.2, stoneDk2, 0, (yc - 0.1 + toe) / 2, sgn * (f + depth / 2 + 0.1));
+    // coping under the deck end, full depth; flush with the earth platform around it
+    let w = -hw, k = 0;
+    while (w < hw - 0.01) { const bw = Math.min(hw - w, 0.6 + pr() * 0.35); box(g, bw - 0.02, 0.24, depth + 0.03, k % 2 ? slab : slab2, w + bw / 2, yc - 0.135, sgn * ((f + bk) / 2 - 0.015)); w += bw; k++; }
+    // cap course along the remaining wall top
+    for (const s2 of [-1, 1]) { let w2 = hw, k2 = 0; while (w2 < wr - 0.01) { const bw = Math.min(wr - w2, 0.5 + pr() * 0.3); box(g, bw - 0.025, 0.24, 0.5, k2 % 2 ? stoneDk : stone, s2 * (w2 + bw / 2), yc - 0.145, sgn * (f + 0.2)); w2 += bw; k2++; } }
+    // stone seat from the coping up under the deck end
+    { const sh = new THREE.Shape(), e = BR_ABUT.ends, sw = BR_HALF_W * 2;
+      sh.moveTo(f, yc - 0.02); sh.lineTo(e + 0.05, yc - 0.02);
+      for (let i = 0; i <= 6; i++) { const uu = e - (i / 6) * (e - f); sh.lineTo(uu, deckY(uu) - 0.11); }
+      sh.closePath();
+      const sg = new THREE.ExtrudeGeometry(sh, { depth: sw, bevelEnabled: false });
+      sg.translate(0, 0, -sw / 2); sg.rotateY(-Math.PI / 2);
+      const sp = new THREE.Mesh(sg, slab2); sp.scale.z = sgn; g.add(sp); }
+    // riprap: along the foot of the exposed wall, and where the earth banks run down into the water
+    for (let k3 = 0; k3 < 5; k3++) { const xx = -(wr - 1.3) + k3 * ((wr - 1.3) * 2 / 4), uu = f - 0.12 - pr() * 0.1;
+      const rk = new THREE.Mesh(blob(0.2 + pr() * 0.1, 1, 0.3, k3 + sgn * 7, 0.6), k3 % 2 ? stone : stoneDk); rk.position.set(xx, lvl - 0.12, sgn * uu); g.add(rk); }
+    for (const s2 of [-1, 1]) for (let q = 0; q < 5; q++) { const tq = q / 4;
+      const rk = new THREE.Mesh(blob(0.26 + pr() * 0.1, 1, 0.3, q + s2 * 3 + sgn * 11, 0.6), q % 2 ? stoneDk : stone);
+      rk.position.set(s2 * (wr - 1.3 + tq * 1.0 + (q % 2) * 0.15), lvl - 0.1 + tq * 0.4, sgn * (f - 0.25 - (1 - tq) * 0.2 - (q % 2) * 0.2)); g.add(rk); }
+    // wall-end boulders: big mossy stones bedded where each wall end meets the bank, so no cut end shows
+    for (const s2 of [-1, 1]) {
+      const bg = blob(0.62 + pr() * 0.1, 1, 0.3, 40 + s2 * 5 + sgn * 9, 0.62);
+      const bm = new THREE.Mesh(bg, s2 > 0 ? stoneDk : stone); bm.scale.set(1.15, 0.8, 1.0);
+      bm.position.set(s2 * (wr + 0.05), yc - 0.32, sgn * (f + 0.05)); bm.rotation.y = pr() * 3; g.add(bm);
+      const sm = new THREE.Mesh(blob(0.32 + pr() * 0.08, 1, 0.3, 50 + s2 * 3 + sgn * 13, 0.62), stoneDk);
+      sm.position.set(s2 * (wr - 0.55), lvl - 0.02, sgn * (f - 0.45)); g.add(sm);
     }
-    let w = -hw - 0.04, k = 0;
-    while (w < hw + 0.03) { const bw = Math.min(hw + 0.04 - w, 0.6 + pr() * 0.35); box(g, bw - 0.025, 0.16, depth + 0.06, k % 2 ? slab : slab2, w + bw / 2, yc - 0.08, sgn * ((f + bk) / 2 - 0.03)); w += bw; k++; }
     // a small stone lantern on the downstream side of each end
-    const lx = sgn > 0 ? -1.55 : 1.55, lu = sgn * (ends + 0.55);
+    const lx = sgn > 0 ? -(hw + 0.5) : hw + 0.5, lu = sgn * (ends + 0.5);
     const lwx = BRIDGE.x + BRIDGE_DIR.y * lx + BRIDGE_DIR.x * lu, lwz = BRIDGE.z - BRIDGE_DIR.x * lx + BRIDGE_DIR.y * lu;
-    const ly = heightAt(lwx, lwz);
+    const ly = yc - 0.03; void lwx; void lwz;
     const lan = new THREE.Group(); lan.position.set(lx, ly, lu); g.add(lan);
     cyl(lan, 0.28, 0.34, 0.18, stoneDk, 0, 0.09, 0, 6);
     cyl(lan, 0.1, 0.13, 0.55, stone, 0, 0.45, 0, 6);
@@ -528,6 +569,7 @@ function createBridge(): THREE.Group {
 walkSurfaces.push((x, z) => {
   const dx = x - BRIDGE.x, dz = z - BRIDGE.z;
   const u = dx * BRIDGE_DIR.x + dz * BRIDGE_DIR.y, w = dx * BRIDGE_DIR.y - dz * BRIDGE_DIR.x;
+  if (Math.abs(u) <= BR_ABUT.back && Math.abs(w) <= BR_ABUT.wing && Math.abs(u) >= BR_ABUT.face && (Math.abs(u) > BR_L / 2 || Math.abs(w) > BR_HALF_W)) return BR_ABUT.coping;
   if (Math.abs(u) > BR_L / 2 + 0.2 || Math.abs(w) > BR_HALF_W) return null;
   return deckY(Math.max(-BR_L / 2, Math.min(BR_L / 2, u)));
 });
@@ -625,6 +667,6 @@ export function createKettleBrook(): BrookPlace {
   return {
     group: g, name: 'Kettle Brook', mill: MILL.clone(),
     focus: new THREE.Vector3(BRIDGE.x, BRIDGE.y + 0.8, BRIDGE.z),
-    update(_time, dt) { mill.wheel.rotation.z += dt * 0.9; },
+    update(_time, dt) { mill.wheel.rotation.z += dt * 0.9; for (const t of flowTex) t.offset.y -= dt * 0.9; },
   };
 }

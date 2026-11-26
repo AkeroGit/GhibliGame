@@ -291,20 +291,31 @@ bake();
 // bridge abutments: low stone blocks set into the bank top under each deck end. Earth is filled flush
 // with the coping on the path side and beside it, and rises to just under the coping on the water side,
 // so only the coping and one course show. brook.ts builds the stone to match BR_ABUT.
-const BR_ENDS = channelHalf(0.55) + 1.9;
-export const BR_ABUT = { face: BR_ENDS - 0.2, back: BR_ENDS + 0.8, half: 1.1 };
+// the abutment's water face stands at the channel edge; the deck lands on its coping a little behind
+const BR_CW = channelHalf(streamNearest(BRIDGE.x, BRIDGE.z).t);
+export const BR_ABUT = { face: BR_CW - 0.1, ends: BR_CW + 0.6, back: BR_CW + 1.5, half: 1.0, wide: 1.25, wing: 2.6, coping: BRIDGE.y + 0.1 };
+// Earth around each abutment, designed around the 0.5 m grid: every cut/fill transition lies inside the
+// stone or slopes against a wall face, never in the open.
+//  - behind the wall line: a flat platform level with the coping, running out past the wall ends
+//  - in front: brook bed against the exposed middle of the wall; towards the wall ends an earth bank is
+//    piled against the face (it buries them), easing back into the natural bank further along
 (() => {
-  const yc = BRIDGE.y + 0.07, A = BR_ABUT;
+  const yc = BR_ABUT.coping, A = BR_ABUT, f = A.face, cutTo = f + 0.35, wr = A.wing;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const x = -HALF + i * RES, z = -HALF + j * RES, dx = x - BRIDGE.x, dz = z - BRIDGE.z;
     const u = Math.abs(dx * BRIDGE_DIR.x + dz * BRIDGE_DIR.y), w = Math.abs(dx * BRIDGE_DIR.y - dz * BRIDGE_DIR.x);
-    if (u < A.face - 1.6 || u > A.back + 5 || w > A.half + 2.2) continue;
-    let target: number;
-    if (u >= A.face) target = yc - 0.02 - Math.max(0, w - A.half - 0.2) * 0.12 - Math.max(0, u - A.back - 0.5) * 0.05;
-    else target = yc - 0.2 - (A.face - u) * 0.55;               // bank face sloping to the water
-    const k = smoothstep(A.half + 2.2, A.half + 0.6, w) * smoothstep(A.back + 5, A.back + 1, u);
+    if (u > A.back + 6 || w > wr + 3) continue;
     const h = heights[idx(i, j)];
-    heights[idx(i, j)] = u >= A.face ? lerp(h, target, k) : Math.max(h, lerp(h, target, k));
+    const plat = yc - 0.03 - Math.max(0, u - A.back - 0.5) * 0.05;
+    if (u >= cutTo) {
+      const k = smoothstep(wr + 3, wr + 0.6, w) * smoothstep(A.back + 6, A.back + 1.5, u);
+      heights[idx(i, j)] = w <= wr + 0.6 ? lerp(h, plat, k) : lerp(h, Math.max(h, plat - (w - wr - 0.6) * 0.6), k);
+    } else {
+      const ramp = Math.max(h, yc - 0.03 - Math.max(0, f - u) * 1.0);
+      const deep = Math.min(h, streamNearest(x, z).level - 0.4);
+      const toRamp = smoothstep(wr - 1.4, wr - 0.5, w), toNat = smoothstep(wr + 0.4, wr + 2.0, w);
+      heights[idx(i, j)] = lerp(lerp(deep, ramp, toRamp), h, toNat);
+    }
   }
 })();
 
@@ -442,7 +453,7 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
   let pathT = smoothstep(1.35 + edgeNoise, 0.7 + edgeNoise, pd) * (sd0 < 12 ? smoothstep(channelHalf(st0) + 0.2, channelHalf(st0) + 0.9, sd0) : 1);
   // bridge approach: worn dirt right up to the threshold stones
   { const bx = x - BRIDGE.x, bz = z - BRIDGE.z, ba = Math.abs(bx * BRIDGE_DIR.x + bz * BRIDGE_DIR.y), bw = Math.abs(bx * BRIDGE_DIR.y - bz * BRIDGE_DIR.x);
-    if (ba > BR_ABUT.back - 0.2 && ba < BR_ABUT.back + 6) pathT = Math.max(pathT, smoothstep(1.5 + edgeNoise, 0.95 + edgeNoise, bw)); }
+    if (ba > BR_ABUT.back - 0.7 && ba < BR_ABUT.back + 6) { const W = lerp(BR_ABUT.wide + 0.2, 0.95, smoothstep(BR_ABUT.back, BR_ABUT.back + 4, ba)); pathT = Math.max(pathT, smoothstep(W + 0.45 + edgeNoise * 0.5, W + edgeNoise * 0.5, bw)); } }
   if (pathT > 0) {
     tmpRock.copy(C.pathEdge).lerp(C.path, smoothstep(1.0, 0.3, pd));
     c.lerp(tmpRock, pathT);

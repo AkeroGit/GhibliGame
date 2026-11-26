@@ -82,6 +82,7 @@ scene.add(sea.mesh);
 const grass = createGrass(quality === 'low' ? 50000 : quality === 'med' ? 100000 : 160000);
 grass.mesh.receiveShadow = quality !== 'low';
 scene.add(grass.mesh);
+if (params.get('hide') === 'grass') grass.mesh.visible = false; // QA: see geometry junctions
 // cozy life layer: wildflower drifts, hydrangeas by the veranda, petals on the wind
 const flowers = createFlowers(quality === 'low' ? 4000 : quality === 'med' ? 8000 : 14000);
 flowers.receiveShadow = quality !== 'low';
@@ -257,6 +258,7 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
   wheel: [new THREE.Vector3(MILL.x + Math.sin(MILL_YAW) * 7.5 - Math.cos(MILL_YAW) * 2.0, MILL.y + 2.0, MILL.z + Math.cos(MILL_YAW) * 7.5 + Math.sin(MILL_YAW) * 2.0), new THREE.Vector3(MILL.x - Math.cos(MILL_YAW) * 0.95 + Math.sin(MILL_YAW) * 3.2, MILL.y - 0.6, MILL.z + Math.sin(MILL_YAW) * 0.95 + Math.cos(MILL_YAW) * 3.2)],
   millBox: (() => { const L = (x: number, y: number, z: number) => new THREE.Vector3(MILL.x + x * Math.cos(MILL_YAW) + z * Math.sin(MILL_YAW), MILL.y + y, MILL.z - x * Math.sin(MILL_YAW) + z * Math.cos(MILL_YAW));
     return [L(-3.4, 1.55, -2.7), L(-1.53, 1.15, -1.75)] as [THREE.Vector3, THREE.Vector3]; })(),
+  brFace: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 4.0 + BRIDGE_DIR.x * 0.6, BRIDGE.y + 0.4, BRIDGE.z - BRIDGE_DIR.x * 4.0 + BRIDGE_DIR.y * 0.6), new THREE.Vector3(BRIDGE.x - BRIDGE_DIR.x * 2.0, BRIDGE.y - 0.2, BRIDGE.z - BRIDGE_DIR.y * 2.0)],
   bridgeSide: [new THREE.Vector3(BRIDGE.x + BRIDGE_DIR.y * 8.5, BRIDGE.y + 1.4, BRIDGE.z - BRIDGE_DIR.x * 8.5), new THREE.Vector3(BRIDGE.x, BRIDGE.y + 0.7, BRIDGE.z)],
   spring: (() => { const f = streamFrame(0.0), g = streamFrame(0.1); return [new THREE.Vector3(g.x + 3, g.level + 2.4, g.z + 6), new THREE.Vector3(f.x, f.level + 0.6, f.z)] as [THREE.Vector3, THREE.Vector3]; })(),
   dale: [new THREE.Vector3(BRIDGE.x + 22, BRIDGE.y + 15, BRIDGE.z + 20), new THREE.Vector3(BRIDGE.x - 14, BRIDGE.y, BRIDGE.z - 4)],
