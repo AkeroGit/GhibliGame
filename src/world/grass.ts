@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mulberry32, fbm2, smoothstep } from '../lib/noise';
 import { globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
-import { heightAt, surfaceAt, streamDistAt, streamTAt, channelHalf, MILL, MILL_YAW, BRIDGE, BRIDGE_DIR } from './terrain';
+import { heightAt, surfaceAt, streamDistAt, streamTAt, streamNearest, channelHalf, MILL, MILL_YAW, BRIDGE, BRIDGE_DIR } from './terrain';
 
 /**
  * Wind-blown grass: instanced tapered blades. Colour comes from the painted ground below,
@@ -50,7 +50,8 @@ export function createGrass(count = 140000, radius = 78) {
     const surf = surfaceAt(x, z);
     // authored clearings keep the shrine/bridge silhouettes readable from their reveal shots
     const shrineClear = Math.hypot(x - 30, z + 20) < 9;
-    const streamClear = streamDistAt(x, z) < channelHalf(streamTAt(x, z)) + 0.8;
+    const sdx = streamDistAt(x, z), scw = channelHalf(streamTAt(x, z));
+    const streamClear = sdx < scw + 0.1 || (sdx < scw + 2 && heightAt(x, z) < streamNearest(x, z).level + 0.08);
     const mdx = x - MILL.x, mdz = z - MILL.z, mc = Math.cos(MILL_YAW), ms = Math.sin(MILL_YAW);
     const mlx = mdx * mc - mdz * ms, mlz = mdx * ms + mdz * mc;
     const millClear = Math.abs(mlx) < 3.9 && mlz > -4.6 && mlz < 3.4;

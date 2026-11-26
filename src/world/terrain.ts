@@ -311,9 +311,10 @@ export const BR_ABUT = { face: BR_CW - 0.1, ends: BR_CW + 0.6, back: BR_CW + 1.5
       const k = smoothstep(wr + 3, wr + 0.6, w) * smoothstep(A.back + 6, A.back + 1.5, u);
       heights[idx(i, j)] = w <= wr + 0.6 ? lerp(h, plat, k) : lerp(h, Math.max(h, plat - (w - wr - 0.6) * 0.6), k);
     } else {
-      const ramp = Math.max(h, yc - 0.03 - Math.max(0, f - u) * 1.0);
+      const dd = Math.max(0, f - u), drop = yc - 0.03 - (streamNearest(x, z).level - 0.3);
+      const ramp = Math.max(h, yc - 0.03 - drop * Math.min(1, (dd / 0.7) ** 1.3));
       const deep = Math.min(h, streamNearest(x, z).level - 0.4);
-      const toRamp = smoothstep(wr - 1.4, wr - 0.5, w), toNat = smoothstep(wr + 0.4, wr + 2.0, w);
+      const toRamp = smoothstep(wr - 1.0, wr - 0.3, w), toNat = smoothstep(wr + 0.2, wr + 1.3, w);
       heights[idx(i, j)] = lerp(lerp(deep, ramp, toRamp), h, toNat);
     }
   }
@@ -439,13 +440,16 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
   if (sd0 < 12) {
     const cw = channelHalf(st0);
     c.lerp(C.lush, smoothstep(9, 3, sd0) * 0.45);
-    const bankT = smoothstep(cw + 1.1, cw + 0.55, sd0);
+    let bankT = smoothstep(cw + 0.7, cw + 0.3, sd0);
+    // beside the bridge abutments the banks are grassed (and stone-armoured at the waterline), not bare earth
+    { const bx = x - BRIDGE.x, bz = z - BRIDGE.z, ba = Math.abs(bx * BRIDGE_DIR.x + bz * BRIDGE_DIR.y), bw = Math.abs(bx * BRIDGE_DIR.y - bz * BRIDGE_DIR.x);
+      if (ba < BR_ABUT.face + 0.5 && bw < BR_ABUT.wing + 3) bankT *= 0.25 + 0.75 * smoothstep(BR_ABUT.wing + 1.5, BR_ABUT.wing + 3, bw); }
     tmpRock.copy(C.bank).lerp(C.pebble, smoothstep(0.6, 0.85, fine) * 0.6);
     c.lerp(tmpRock, bankT * 0.85);
     const bedT = smoothstep(cw + 0.1, cw - 0.3, sd0);
     tmpRock.copy(C.bed).lerp(C.pebble, smoothstep(0.45, 0.8, fine) * 0.7);
     c.lerp(tmpRock, bedT);
-    grassiness *= 1 - smoothstep(cw + 1.0, cw + 0.5, sd0);
+    grassiness *= 1 - smoothstep(cw + 0.65, cw + 0.3, sd0);
     if (sd0 < cw * 0.8) kind = 'water';
   }
   // Worn dirt path with grassy, irregular edges.
@@ -453,7 +457,7 @@ export function surfaceAt(x: number, z: number): { color: THREE.Color; kind: Sur
   let pathT = smoothstep(1.35 + edgeNoise, 0.7 + edgeNoise, pd) * (sd0 < 12 ? smoothstep(channelHalf(st0) + 0.2, channelHalf(st0) + 0.9, sd0) : 1);
   // bridge approach: worn dirt right up to the threshold stones
   { const bx = x - BRIDGE.x, bz = z - BRIDGE.z, ba = Math.abs(bx * BRIDGE_DIR.x + bz * BRIDGE_DIR.y), bw = Math.abs(bx * BRIDGE_DIR.y - bz * BRIDGE_DIR.x);
-    if (ba > BR_ABUT.back - 0.7 && ba < BR_ABUT.back + 6) { const W = lerp(BR_ABUT.wide + 0.2, 0.95, smoothstep(BR_ABUT.back, BR_ABUT.back + 4, ba)); pathT = Math.max(pathT, smoothstep(W + 0.45 + edgeNoise * 0.5, W + edgeNoise * 0.5, bw)); } }
+    if (ba > BR_ABUT.back - 1.0 && ba < BR_ABUT.back + 6) { const W = lerp(BR_ABUT.wide + 0.35, 1.0, smoothstep(BR_ABUT.back + 0.5, BR_ABUT.back + 4.5, ba)); pathT = Math.max(pathT, smoothstep(W + 0.5 + edgeNoise * 0.5, W + edgeNoise * 0.4, bw)); } }
   if (pathT > 0) {
     tmpRock.copy(C.pathEdge).lerp(C.path, smoothstep(1.0, 0.3, pd));
     c.lerp(tmpRock, pathT);

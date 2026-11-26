@@ -485,7 +485,7 @@ function createWeir(): THREE.Group {
 
 // ---------------------------------------------------------------- bridge
 const BR_L = 2 * BR_ABUT.ends, BR_A = 0.95, BR_HALF_W = 0.95;
-const deckY = (u: number) => BR_ABUT.coping + 0.04 + BR_A * (1 - (2 * u / BR_L) ** 2);
+const deckY = (u: number) => BR_ABUT.coping - 0.005 + BR_A * (1 - (2 * u / BR_L) ** 2);
 function createBridge(): THREE.Group {
   const g = new THREE.Group();
   g.position.set(BRIDGE.x, 0, BRIDGE.z); g.rotation.y = Math.atan2(BRIDGE_DIR.x, BRIDGE_DIR.y); // local z along the path
@@ -523,6 +523,10 @@ function createBridge(): THREE.Group {
       quad(u0 + seam, u1, 0, cA.clone().lerp(cB, pr()));
     }
     for (let i = 0; i < nP; i++) quad(-ends + (i / nP) * BR_L, -ends + ((i + 1) / nP) * BR_L, -0.1, cU, true);
+    // a sill board across each end, flush with the coping, hides the deck's end grain
+    for (const e of [-1, 1]) { const k = pos.length / 3, y = BR_ABUT.coping - 0.012, u0 = e * ends, u1 = e * (ends + 0.12);
+      pos.push(-hw, y, u0, hw, y, u0, hw, y, u1, -hw, y, u1); for (let q2 = 0; q2 < 4; q2++) col.push(cS.r, cS.g, cS.b);
+      if (e > 0) ind.push(k, k + 2, k + 1, k, k + 3, k + 2); else ind.push(k, k + 1, k + 2, k, k + 2, k + 3); }
     const dg = new THREE.BufferGeometry();
     dg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); dg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); dg.setIndex(ind);
     dg.computeVertexNormals();
@@ -582,6 +586,25 @@ function createBridge(): THREE.Group {
     for (const s2 of [-1, 1]) for (let q = 0; q < 5; q++) { const tq = q / 4;
       const rk = new THREE.Mesh(blob(0.26 + pr() * 0.1, 1, 0.3, q + s2 * 3 + sgn * 11, 0.6), q % 2 ? stoneDk : stone);
       rk.position.set(s2 * (wr - 1.3 + tq * 1.0 + (q % 2) * 0.15), lvl - 0.1 + tq * 0.4, sgn * (f - 0.25 - (1 - tq) * 0.2 - (q % 2) * 0.2)); g.add(rk); }
+    // riprap armouring the bank slopes beside the wall, laid along wherever the slope meets the water
+    for (const s2 of [-1, 1]) for (let q = 0; q < 9; q++) {
+      const ww2 = wr - 1.3 + q * 0.42 + (pr() - 0.5) * 0.15;
+      let dd = 0.2;
+      for (; dd < 3.2; dd += 0.05) { const uu = f - dd, wxp = BRIDGE.x + BRIDGE_DIR.y * s2 * ww2 + BRIDGE_DIR.x * sgn * uu, wzp = BRIDGE.z - BRIDGE_DIR.x * s2 * ww2 + BRIDGE_DIR.y * sgn * uu; if (heightAt(wxp, wzp) < lvl + 0.02) break; }
+      if (dd >= 3.2) continue;
+      for (const o of [-0.12, 0.25]) {
+        const rk = new THREE.Mesh(blob(0.17 + pr() * 0.12, 1, 0.33, 90 + q * 3 + s2 * 5 + sgn * 31 + (o > 0 ? 1 : 0), 0.6), (q + (o > 0 ? 1 : 0)) % 2 ? stone : stoneDk);
+        const uu = f - dd - o, wxp = BRIDGE.x + BRIDGE_DIR.y * s2 * ww2 + BRIDGE_DIR.x * sgn * uu, wzp = BRIDGE.z - BRIDGE_DIR.x * s2 * ww2 + BRIDGE_DIR.y * sgn * uu;
+        rk.position.set(s2 * ww2, Math.max(heightAt(wxp, wzp), lvl - 0.12) + 0.03, sgn * uu); rk.rotation.y = pr() * 3; g.add(rk);
+      }
+    }
+    // the earth banks against the wall ends: tufts of rushes and a scatter of half-buried stones break the slope
+    for (const s2 of [-1, 1]) for (let q = 0; q < 4; q++) {
+      const rk = new THREE.Mesh(blob(0.14 + pr() * 0.1, 1, 0.35, 70 + q + s2 * 4 + sgn * 17, 0.55), q % 2 ? stoneDk : stone);
+      const dd = 0.3 + pr() * 1.0, ww2 = wr - 1.0 + pr() * 1.6;
+      const drop = yc - 0.03 - (lvl - 0.3);
+      rk.position.set(s2 * ww2, yc - 0.03 - drop * Math.min(1, (dd / 1.5) ** 1.6) + 0.02, sgn * (f - dd)); rk.rotation.y = pr() * 3; g.add(rk);
+    }
     // wall-end boulders: big mossy stones bedded where each wall end meets the bank, so no cut end shows
     for (const s2 of [-1, 1]) {
       const bg = blob(0.62 + pr() * 0.1, 1, 0.3, 40 + s2 * 5 + sgn * 9, 0.62);
@@ -686,6 +709,18 @@ function createBanks(): THREE.Group {
       ps.set(x, Math.max(heightAt(x, z), streamNearest(x, z).level - 0.25) - 0.05, z);
       e.set((rand() - 0.5) * 0.25, rand() * 6.28, (rand() - 0.5) * 0.25);
       const k2 = 0.55 + rand() * 0.4; sc.set(k2, k2 * (0.8 + rand() * 0.5), k2);
+      reeds.setMatrixAt(n++, mt.compose(ps, q.setFromEuler(e), sc));
+    }
+  }
+  // rushes on the earth banks against the bridge wall ends (real banks are overgrown there; hides the cut slope)
+  for (const sgn of [-1, 1]) for (const s2 of [-1, 1]) {
+    const wc = s2 * (BR_ABUT.wing - 0.1), uc = sgn * (BR_ABUT.face - 0.55);
+    for (let k = 0; k < 11 && n < 420; k++) {
+      const w = wc + (rand() - 0.5) * 1.3, u = uc + (rand() - 0.5) * 0.7 * sgn;
+      const x = BRIDGE.x + BRIDGE_DIR.y * w + BRIDGE_DIR.x * u, z = BRIDGE.z - BRIDGE_DIR.x * w + BRIDGE_DIR.y * u;
+      ps.set(x, Math.max(heightAt(x, z), streamNearest(x, z).level - 0.25) - 0.05, z);
+      e.set((rand() - 0.5) * 0.3, rand() * 6.28, (rand() - 0.5) * 0.3);
+      const k2 = 0.6 + rand() * 0.45; sc.set(k2, k2 * (0.85 + rand() * 0.5), k2);
       reeds.setMatrixAt(n++, mt.compose(ps, q.setFromEuler(e), sc));
     }
   }
