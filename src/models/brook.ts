@@ -207,16 +207,24 @@ function framedWindow(g: THREE.Object3D, x: number, y: number, z: number, ry: nu
   box(w, 0.96, 0.1, 0.1, frame, 0, 0.36, 0.02); box(w, 0.96, 0.1, 0.1, frame, 0, -0.36, 0.02);
   box(w, 0.1, 0.72, 0.1, frame, -0.45, 0, 0.02); box(w, 0.1, 0.72, 0.1, frame, 0.45, 0, 0.02);
   box(w, 0.05, 0.62, 0.07, frame, 0, 0, 0.03); box(w, 0.8, 0.05, 0.07, frame, 0, 0.05, 0.03);
-  box(w, 1.0, 0.07, 0.22, frame, 0, -0.42, 0.08); // sill
+  box(w, 1.0, 0.07, 0.12, frame, 0, -0.42, 0.03); // sill
   // flower box under the window
-  // flower box: back against the wall (local z -0.08), front under the sill nose, bottom on the mid rail (local y -0.66)
-  box(w, 0.84, 0.2, 0.24, m('#6e4a32', 0.3), 0, -0.56, 0.04);
-  box(w, 0.78, 0.04, 0.18, m('#3d2c20', 0.2), 0, -0.47, 0.04);
-  for (const bx of [-0.3, 0.3]) { const br = box(w, 0.06, 0.34, 0.06, frame, bx, -0.79, 0.03); br.rotation.x = 0.66; box(w, 0.07, 0.06, 0.1, frame, bx, -0.93, -0.04); }
+  // flower box (painted): back on the plaster (local z -0.08), front well proud of the sill so the flowers rise
+  // in front of it, bottom resting on the mid rail (top at local y -0.66, front face z +0.02); two solid gussets
+  // fixed to the rail face carry the overhang
+  const boxMat = m('#6f8f88', 0.35);
+  box(w, 0.84, 0.2, 0.26, boxMat, 0, -0.56, 0.05);
+  box(w, 0.78, 0.03, 0.2, m('#3d2c20', 0.2), 0, -0.465, 0.05);
+  for (const bx of [-0.3, 0.3]) {
+    const gs = new THREE.Shape(); gs.moveTo(0.02, -0.66); gs.lineTo(0.17, -0.66); gs.lineTo(0.02, -0.8); gs.closePath();
+    const gg = new THREE.ExtrudeGeometry(gs, { depth: 0.05, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); gg.translate(bx + 0.025, 0, 0);
+    // rotateY(-90°) maps shape x -> z; shape y stays y
+    const gm = new THREE.Mesh(gg, frame); gm.castShadow = true; w.add(gm);
+  }
   const fl = [m('#e78fae', 0.5), m('#f6d36a', 0.5), m('#fff2e0', 0.5), m('#c86a9a', 0.5)], lv = m('#5d8a41', 0.35);
   const fr = mulberry32(Math.round(x * 13 + z * 7));
-  for (let i = 0; i < 12; i++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), lv); l.position.set(-0.34 + i * 0.062, -0.43, -0.02 + fr() * 0.12); l.scale.set(1.1, 0.7, 1); w.add(l); }
-  for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.075 + fr() * 0.025, 7, 5), fl[i % 4]); b.position.set(-0.36 + (i / 17) * 0.72 + (fr() - 0.5) * 0.05, -0.37 + fr() * 0.05, -0.03 + fr() * 0.14); w.add(b); }
+  for (let i = 0; i < 12; i++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), lv); l.position.set(-0.34 + i * 0.062, -0.44, 0.09 + fr() * 0.07); l.scale.set(1.1, 0.7, 1); w.add(l); }
+  for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.075 + fr() * 0.025, 7, 5), fl[i % 4]); b.position.set(-0.36 + (i / 17) * 0.72 + (fr() - 0.5) * 0.05, -0.37 + fr() * 0.07, 0.1 + fr() * 0.07); w.add(b); }
   g.add(w);
 }
 
@@ -325,15 +333,18 @@ function createMill() {
   const R = 1.1, zc = D / 2 + 1.45, wx = -0.95;
   const wy = race + R - 0.45; // rim dips 0.45 m into the race; chute enters well above the hub
   wheel.position.set(wx, wy, zc);
-  const wWood = m('#8c6646', 0.35), wDark = m('#5a4030', 0.25);
+  const wWood = m('#8c6646', 0.35), wDark = m('#5a4030', 0.25), wWet = m('#6e5039', 0.3);
+  const ringR = R - 0.24;
   for (const dz of [-0.36, 0.36]) {
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(R, 0.08, 6, 32), wDark); rim.position.z = dz; rim.castShadow = true; wheel.add(rim);
-    for (let i = 0; i < 6; i++) { const sp = box(wheel, 0.1, R * 2, 0.1, wWood, 0, 0, dz); sp.rotation.z = (i / 6) * Math.PI; }
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.07, 6, 40), wDark); rim.position.z = dz; rim.castShadow = true; wheel.add(rim);
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(ringR - 0.24, 0.04, 5, 32), wDark); inner.position.z = dz; wheel.add(inner);
+    for (let i = 0; i < 8; i++) { const sp = box(wheel, 0.09, ringR * 2, 0.08, wWood, 0, 0, dz); sp.rotation.z = (i / 8) * Math.PI; }
   }
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2;
-    const pd = box(wheel, 0.06, 0.42, 0.7, wWood, Math.cos(a) * (R - 0.12), Math.sin(a) * (R - 0.12), 0);
-    pd.rotation.z = a + Math.PI / 2;
+  // floats: radial boards between the rims, standing out past them (the classic water-wheel silhouette)
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2, r0 = ringR - 0.12, rc = (r0 + R) / 2;
+    const pd = box(wheel, 0.06, R - r0, 0.82, i % 2 ? wWood : wWet, Math.cos(a) * rc, Math.sin(a) * rc, 0);
+    pd.rotation.z = a - Math.PI / 2;
   }
   const hub = cyl(wheel, 0.22, 0.22, 0.86, wDark, 0, 0, 0, 10); hub.rotation.x = Math.PI / 2;
   wheel.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.receiveShadow = false; });
@@ -343,8 +354,9 @@ function createMill() {
   box(g, 0.4, 0.34, 0.3, wDark, wx, wy, zc + 0.75); // outer bearing block
   for (const dz of [-0.47, 0.47]) { const plate = cyl(wheel, 0.32, 0.32, 0.05, m('#3c3836', 0.3), 0, 0, dz, 10); plate.rotation.x = Math.PI / 2; }
   // outer bearing: a stone pier standing in the race
-  for (const dx of [-0.45, 0.45]) { const leg = box(g, 0.16, wy - race + 1.1, 0.16, timber, wx + dx * 0.55, (wy + race - 1.1) / 2, zc + 0.75); leg.rotation.z = -dx * 0.35; }
-  box(g, 0.7, 0.14, 0.2, timber, wx, wy - 0.12, zc + 0.75);
+  { const pb = race - 0.6, pt = wy - 0.17, nr = Math.max(2, Math.round((pt - pb) / 0.26)), rh = (pt - pb) / nr;
+    for (let r = 0; r < nr; r++) box(g, 0.62 - (r % 2) * 0.05, rh - 0.03, 0.48 - (r % 2) * 0.05, r % 2 ? stone : stoneDark, wx, pb + (r + 0.5) * rh, zc + 0.75);
+    box(g, 0.7, 0.08, 0.56, stoneDark, wx, pt - 0.03, zc + 0.75); }
   // flume: a timber chute taking water off the weir crest and delivering it to the wheel at hub height
   g.updateMatrixWorld(true);
   const wf = streamFrame(WEIR_T);
@@ -356,8 +368,8 @@ function createMill() {
   const chute = new THREE.Group(); chute.position.set((fx0 + fx1) / 2, (fy0 + fy1) / 2, 0); chute.rotation.z = tilt; fl.add(chute);
   box(chute, len, 0.08, 0.72, wood, 0, -0.18, 0);
   for (const s2 of [-1, 1]) box(chute, len, 0.34, 0.07, wood, 0, -0.02, s2 * 0.36);
-  const fwg = new THREE.BoxGeometry(len, 0.1, 0.62); fwg.rotateY(Math.PI / 2); fwg.rotateY(-Math.PI / 2);
-  const fw = new THREE.Mesh(fwg, flowMat([1, 3]));
+  const fwg = alongUV(new THREE.BoxGeometry(len, 0.1, 0.62), len / 1.2);
+  const fw = new THREE.Mesh(fwg, flowMat([1, 1]));
   fw.position.set(0, 0.03, 0); chute.add(fw);
   for (const x of [fx0 + 0.35, (fx0 + fx1) / 2, fx1 - 0.2]) {
     const top = fy0 + (fy1 - fy0) * ((x - fx0) / (fx1 - fx0)) - 0.22;
@@ -368,10 +380,10 @@ function createMill() {
   box(fl, 0.2, 0.14, 1.05, timber, fx0 + 0.1, fy0 + 1.0, 0);
   box(fl, 0.07, 0.42, 0.78, wood, fx0 + 0.1, fy0 + 0.62, 0);
   // water riding the buckets: foamy bands filling the upstream-lower quarter, visible on both wheel faces
-  { // breastshot: a curved breast follows the wheel from the chute lip down to the race; the water rides in the
-    // buckets against it. The breast's cheek wall (mill side) is solid masonry; the outer side stays open.
+  { // breastshot: water leaves the chute lip, drops onto the floats and is carried down against a curved
+    // timber breast into the race. Mill-side cheek wall in masonry; the outer side open so the water shows.
     const a0 = Math.PI - Math.asin(Math.min(0.95, (fy1 - wy) / R)), a1 = Math.PI * 1.5 + 0.12;
-    const breastR = R + 0.14, bw = 0.4;
+    const breastR = R + 0.06, bw = 0.42;
     const sector = (ri: number, ro: number, depth: number, mat: THREE.Material, extraOuter = false) => {
       const sh = new THREE.Shape(), NS = 18;
       for (let i = 0; i <= NS; i++) { const a = a0 + (i / NS) * (a1 - a0); const p = [wx + Math.cos(a) * ro, wy + Math.sin(a) * ro]; i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1]); }
@@ -380,19 +392,33 @@ function createMill() {
       const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false, curveSegments: 1 });
       geo.translate(0, 0, -depth / 2); return new THREE.Mesh(geo, mat);
     };
-    // timber breast boards
-    const br = sector(breastR, breastR + 0.08, bw * 2, wood); br.castShadow = br.receiveShadow = true; fl.add(br);
-    // masonry cheek wall on the mill side, filling from the breast out to the chute pier and down into the race
-    const ck = sector(breastR, breastR + 0.08, 0.26, mw('#b9a98b', 0.35), true); ck.position.z = -bw - 0.13; ck.castShadow = ck.receiveShadow = true; fl.add(ck);
-    // the water in the buckets: a curved volume between the paddle roots and the breast, flowing downward
-    const wv = sector(R - 0.3, breastR - 0.01, 0.68, flowMat([0.6, 0.6])); fl.add(wv);
-    // white water where the chute pours into the top buckets and where the buckets empty into the race
-    const sr3 = mulberry32(19), foam = toon({ color: '#f2fbf8', rim: 0.35 });
-    for (let i = 0; i < 9; i++) { const a = a0 + sr3() * 0.35; const fb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07 + sr3() * 0.07, 1), foam);
-      fb.position.set(wx + Math.cos(a) * (R - 0.25), wy + Math.sin(a) * (R - 0.25) + 0.05, (sr3() - 0.5) * 0.6); fb.scale.set(1, 0.6, 1); fl.add(fb); }
-    for (let i = 0; i < 10; i++) { const a = a1 - sr3() * 0.4; const fb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.08 + sr3() * 0.08, 1), foam);
-      fb.position.set(wx + Math.cos(a) * (R - 0.1) + 0.1, race + 0.03, (sr3() - 0.5) * 0.7); fb.scale.set(1.3, 0.4, 1); fl.add(fb); }
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, bw * 2 - 0.1), flowMat([1, 1])); top.position.set(fx1 + 0.08, fy1 - 0.03, 0); fl.add(top);
+    const br = sector(breastR, breastR + 0.09, bw * 2, wood); br.castShadow = br.receiveShadow = true; fl.add(br);
+    const ck = sector(breastR, breastR + 0.09, 0.26, mw('#b9a98b', 0.35), true); ck.position.z = -bw - 0.13; ck.castShadow = ck.receiveShadow = true; fl.add(ck);
+    const foamFlow = flowMat([1, 1], true);
+    // the pour: water leaves the chute lip and drops onto the float tips (a short parabola)
+    const pour: THREE.Vector3[] = [];
+    for (let i = 0; i <= 8; i++) { const q = i / 8; pour.push(new THREE.Vector3(fx1 - 0.3 + q * 0.56, fy1 + 0.03 - 0.3 * Math.max(0, (q - 0.45) / 0.55) ** 2, 0)); }
+    const pg = alongUV(tube(pour, 0.07, 0.09, 10, 16), 1.2); pg.scale(1, 1, 3.9);
+    fl.add(new THREE.Mesh(pg, foamFlow));
+    // the water carried in the buckets: thick, from the impact down the breast into the race
+    const ia = Math.PI - Math.asin(Math.min(0.95, (fy1 - 0.27 - wy) / R));
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 16; i++) { const a = ia + (i / 16) * (a1 - ia), rr = R - 0.17; pts.push(new THREE.Vector3(wx + Math.cos(a) * rr, wy + Math.sin(a) * rr, 0)); }
+    pts.push(new THREE.Vector3(wx + 0.6, race + 0.03, 0));
+    const wg = alongUV(tube(pts, 0.19, 0.17, 12, 72), 3.5); wg.scale(1, 1, 2.05);
+    const wm = new THREE.Mesh(wg, foamFlow); fl.add(wm);
+    // lumps of white water spilling over the float tips along the loaded side (breaks up the smooth sheet)
+    const lr = mulberry32(23), lump = toon({ color: '#f1faf8', emissive: '#9fd2c8', emissiveIntensity: 0.3, rim: 0.35 });
+    for (let i = 0; i < 22; i++) { const a = ia + lr() * (a1 - ia), rr = R - 0.05 - lr() * 0.18, side = lr() < 0.5 ? -1 : 1;
+      const lb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07 + lr() * 0.07, 0), lump);
+      lb.position.set(wx + Math.cos(a) * rr, wy + Math.sin(a) * rr, side * (0.3 + lr() * 0.12)); lb.scale.set(1.3, 0.8, 0.7); lb.rotation.set(lr() * 3, lr() * 3, 0); fl.add(lb); }
+    // spray where the jet strikes the floats, and a churning boil where the buckets empty into the race
+    const sr3 = mulberry32(19), foam = toon({ color: '#f4fbf9', emissive: '#a8d6cd', emissiveIntensity: 0.3, rim: 0.35 });
+    const ix = wx + Math.cos(a0 + 0.1) * R, iy = wy + Math.sin(a0 + 0.1) * R;
+    for (let i = 0; i < 16; i++) { const fb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.03 + sr3() * 0.06, 0), foam);
+      fb.position.set(ix - 0.1 + sr3() * 0.35, iy + 0.05 + sr3() * 0.28, (sr3() - 0.5) * 0.9); fl.add(fb); }
+    for (let i = 0; i < 26; i++) { const fb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.08 + sr3() * 0.1, 1), foam);
+      fb.position.set(wx - 0.3 + sr3() * 2.0, race + 0.0 + sr3() * 0.06, (sr3() - 0.5) * 1.0); fb.scale.set(1.2 + sr3() * 0.6, 0.3, 0.8 + sr3() * 0.5); fb.rotation.y = sr3() * 3; fl.add(fb); }
   }
   g.add(fl);
   return { group: g, wheel };
@@ -400,14 +426,20 @@ function createMill() {
 
 // ---------------------------------------------------------------- weir
 const flowTex: THREE.CanvasTexture[] = [];
-function flowMat(rep: [number, number]): THREE.MeshToonMaterial {
+function alongUV(geo: THREE.BufferGeometry, scale = 1): THREE.BufferGeometry {
+  const uv = geo.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, v, u * scale); }
+  uv.needsUpdate = true; return geo;
+}
+function flowMat(rep: [number, number], white = false): THREE.MeshToonMaterial {
   const c = document.createElement('canvas'); c.width = 64; c.height = 128;
   const x = c.getContext('2d')!, rnd = mulberry32(17 + flowTex.length);
-  x.fillStyle = '#7fcabd'; x.fillRect(0, 0, 64, 128);
-  for (let i = 0; i < 46; i++) { const px = rnd() * 64, w = 1 + rnd() * 3, l = 20 + rnd() * 60, py = rnd() * 128; x.fillStyle = `rgba(240,252,249,${0.35 + rnd() * 0.5})`; x.fillRect(px, py, w, l); x.fillRect(px, py - 128, w, l); }
+  x.fillStyle = white ? '#cfeee8' : '#7fcabd'; x.fillRect(0, 0, 64, 128);
+  if (white) for (let i = 0; i < 26; i++) { const px = rnd() * 64, l = 15 + rnd() * 50, py = rnd() * 128; x.fillStyle = 'rgba(120,196,184,0.55)'; x.fillRect(px, py, 2 + rnd() * 3, l); x.fillRect(px, py - 128, 2 + rnd() * 3, l); }
+  for (let i = 0; i < (white ? 70 : 46); i++) { const px = rnd() * 64, w = 1 + rnd() * 3, l = 20 + rnd() * 60, py = rnd() * 128; x.fillStyle = `rgba(240,252,249,${0.35 + rnd() * 0.5})`; x.fillRect(px, py, w, l); x.fillRect(px, py - 128, w, l); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); t.colorSpace = THREE.SRGBColorSpace;
   flowTex.push(t);
-  return toon({ color: '#ffffff', map: t, emissive: '#2f6f66', emissiveIntensity: 0.25, rim: 0.45 });
+  return toon({ color: '#ffffff', map: t, emissive: white ? '#7fb8ae' : '#2f6f66', emissiveIntensity: white ? 0.35 : 0.25, rim: 0.45 });
 }
 
 let _ct: THREE.CanvasTexture | null = null;
