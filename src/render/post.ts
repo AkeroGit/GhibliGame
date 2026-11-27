@@ -40,7 +40,8 @@ const GradeShader = {
       // paper: coarse fibres + fine grain
       vec2 px = vUv * uRes;
       float fib = (n(px * 0.012) - 0.5) * 0.035 + (n(px * 0.08 + 3.0) - 0.5) * 0.02;
-      float grain = (h(px + fract(uTime) * 91.0) - 0.5) * 0.028;
+      // paper grain is part of the paper, so it stays still (animated grain reads as flicker)
+      float grain = (h(px + 17.0) - 0.5) * 0.022;
       c += (fib + grain) * mix(1.0, 0.6, uNight);
       // vignette
       vec2 q = vUv - 0.5;
@@ -50,8 +51,12 @@ const GradeShader = {
     }`,
 };
 
-export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-  const composer = new EffectComposer(renderer);
+export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, samples = 4) {
+  // The composer renders into its own target, so the canvas's antialias flag does nothing:
+  // give the scene target real MSAA or every grass blade and railing edge shimmers.
+  const pr0 = renderer.getPixelRatio(), sz0 = renderer.getSize(new THREE.Vector2());
+  const rt = new THREE.WebGLRenderTarget(sz0.x * pr0, sz0.y * pr0, { type: THREE.HalfFloatType, samples });
+  const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   const size = renderer.getSize(new THREE.Vector2());
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.35, 0.6, 0.82);

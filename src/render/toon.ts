@@ -139,6 +139,8 @@ ${CLOUD_SHADOW_GLSL}`,
         `// rim light: silhouettes catch the sky colour
 vec3 vdir = normalize(cameraPosition - vWorldPosK);
 float rimF = pow(1.0 - clamp(dot(normalize(vNormal), normalize((viewMatrix * vec4(vdir, 0.0)).xyz)), 0.0, 1.0), 3.0);
+// far away the rim is thinner than a pixel and just twinkles on leaf clusters and reeds
+rimF *= 1.0 - 0.8 * smoothstep(18.0, 60.0, length(cameraPosition - vWorldPosK));
 outgoingLight += mix(uSunColor, uAmbient, 0.5) * rimF * uRim * (1.0 - 0.7 * uNight) * diffuseColor.rgb;
 outgoingLight = applyCloudShadow(outgoingLight - totalEmissiveRadiance, vWorldPosK.xz) + totalEmissiveRadiance;
 #include <opaque_fragment>`,

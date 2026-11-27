@@ -58,11 +58,29 @@ const sun = new THREE.DirectionalLight(0xfff8ec, 2.5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(quality === 'high' ? 2048 : 1024, quality === 'high' ? 2048 : 1024);
 const sc = sun.shadow.camera;
-sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 260;
-sun.shadow.bias = -0.0006;
-sun.shadow.normalBias = 0.04;
-sun.shadow.radius = 3;
+// The shadow box follows whatever the camera is looking at (the player in play mode) instead of
+// sitting on the world origin: 2048 px over 56 m = 2.7 cm texels, so she casts a real silhouette.
+// SHADOW_R is the half-size; the box is snapped to whole texels so shadow edges don't crawl.
+const SHADOW_R = quality === 'high' ? 28 : 24;
+sc.left = -SHADOW_R; sc.right = SHADOW_R; sc.top = SHADOW_R; sc.bottom = -SHADOW_R; sc.near = 1; sc.far = 300;
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.025;
+sun.shadow.radius = 2;
 scene.add(sun, sun.target);
+const shadowFocus = new THREE.Vector3();
+const shadowBasis = { r: new THREE.Vector3(), u: new THREE.Vector3(), f: new THREE.Vector3() };
+/** Centre the sun's shadow box on `focus`, snapped to the shadow-map texel grid in light space. */
+function placeSun(lightDir: THREE.Vector3, focus: THREE.Vector3) {
+  const { r, u, f } = shadowBasis;
+  f.copy(lightDir).normalize();
+  r.set(0, 1, 0).cross(f); if (r.lengthSq() < 1e-6) r.set(1, 0, 0); r.normalize();
+  u.copy(f).cross(r).normalize();
+  const texel = (2 * SHADOW_R) / sun.shadow.mapSize.x;
+  const a = Math.round(focus.dot(r) / texel) * texel, b = Math.round(focus.dot(u) / texel) * texel, c = focus.dot(f);
+  sun.target.position.set(0, 0, 0).addScaledVector(r, a).addScaledVector(u, b).addScaledVector(f, c);
+  sun.position.copy(sun.target.position).addScaledVector(f, 150);
+  sun.target.updateMatrixWorld();
+}
 
 // --- world ---
 const sky = createSky();
@@ -306,7 +324,7 @@ const orbitCentre = camLook.clone();
 const orbitR = Math.hypot(camPos.x - camLook.x, camPos.z - camLook.z);
 let orbitA = Math.atan2(camPos.z - camLook.z, camPos.x - camLook.x);
 
-const post = createPost(renderer, scene, camera);
+const post = createPost(renderer, scene, camera, quality === 'low' ? 2 : 4);
 const resize = () => {
   const w = window.innerWidth, h = window.innerHeight;
   camera.aspect = w / h;
@@ -336,8 +354,14 @@ function frame(dt: number) {
 
   // light: sun by day, moon by night (cool and dim)
   const lightDir = s.night > 0.55 ? s.moonDir : s.sunDir;
-  sun.position.copy(lightDir).multiplyScalar(120).add(tmp.set(0, 0, 0));
-  sun.target.position.set(0, 0, 0);
+  // shadow box centre: the player when walking, else a point ~12 m ahead of the camera
+  if (playMode || charShot) {
+    // bias the box ahead of the player, where the camera looks: ~SHADOW_R*0.35 forward
+    camera.getWorldDirection(tmp); tmp.y = 0; tmp.normalize();
+    shadowFocus.copy(player.position).addScaledVector(tmp, SHADOW_R * 0.35);
+  }
+  else { camera.getWorldDirection(shadowFocus); shadowFocus.multiplyScalar(14).add(camera.position); shadowFocus.y = heightAt(shadowFocus.x, shadowFocus.z); }
+  placeSun(lightDir, shadowFocus);
   sun.color.copy(s.night > 0.55 ? new THREE.Color('#9fb3ff') : s.sunColor);
   sun.intensity = s.night > 0.55 ? 0.6 : s.sunIntensity * 1.25;
   hemi.color.copy(s.ambientSky);
@@ -428,6 +452,15 @@ if (freeze) {
   frame(1 / 60);
   frame(1 / 60);
   (window as unknown as { __ready: boolean }).__ready = true;
+  // QA: step the game by hand (walk forward, fixed 60 Hz) so flicker can be measured frame by frame
+  (window as unknown as { __step: (n: number, fwd: number) => void }).__step = (n, fwd) => {
+    for (let i = 0; i < n; i++) {
+      (input as unknown as { keys: Set<string> }).keys.add(fwd > 0 ? 'KeyW' : 'KeyS');
+      player.update(input, 1 / 60, followCamera.yaw, clock);
+      followCamera.update(player.root, input, 1 / 60);
+      frame(1 / 60);
+    }
+  };
 } else {
   renderer.setAnimationLoop(() => {
     const now = performance.now();

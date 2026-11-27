@@ -9,16 +9,16 @@ export function createPlayer() {
   const root = new THREE.Group();
   const rig = createCharacter();
   root.add(rig.root);
-  // soft contact shadow: grounds her on grass where the shadow map is too coarse to read
+  // small soft contact shadow (ambient occlusion under the shoes); the sun casts her real shadow
   const blobTex = (() => {
     const cv = document.createElement('canvas'); cv.width = cv.height = 64;
     const g = cv.getContext('2d')!;
     const grd = g.createRadialGradient(32, 32, 2, 32, 32, 32);
-    grd.addColorStop(0, 'rgba(40,38,44,0.42)'); grd.addColorStop(0.6, 'rgba(40,38,44,0.18)'); grd.addColorStop(1, 'rgba(40,38,44,0)');
+    grd.addColorStop(0, 'rgba(40,38,44,0.30)'); grd.addColorStop(0.55, 'rgba(40,38,44,0.10)'); grd.addColorStop(1, 'rgba(40,38,44,0)');
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
     return new THREE.CanvasTexture(cv);
   })();
-  const blobShadow = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const blobShadow = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   blobShadow.rotation.x = -Math.PI / 2;
   blobShadow.position.y = 0.03;
   blobShadow.scale.set(1, 0.8, 1);

@@ -102,13 +102,18 @@ export function createGrass(count = 140000, radius = 78) {
       varying float vT;
       varying float vGust;
       varying vec2 vXZ;
+      varying float vFar;
       float h1(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
       float n1(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
         return mix(mix(h1(i),h1(i+vec2(1,0)),u.x), mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),u.x), u.y); }
       void main(){
         float t = position.y;
         float c = cos(aOffset.w), s = sin(aOffset.w);
-        vec3 p = vec3(position.x * aShape.y, t * aShape.x, 0.0);
+        // far blades would be thinner than a pixel and sparkle as the camera moves:
+        // keep every blade at least ~1.5 px wide (MSAA then resolves it smoothly)
+        float camD = distance(cameraPosition.xz, aOffset.xz);
+        float bladeW = max(aShape.y, camD * 0.0021);
+        vec3 p = vec3(position.x * bladeW, t * aShape.x, 0.0);
         p = vec3(p.x * c, p.y, p.x * s);
         vec2 wp = aOffset.xz;
         // rolling gust waves across the meadow
@@ -124,6 +129,8 @@ export function createGrass(count = 140000, radius = 78) {
         vT = t;
         vGust = gust;
         vXZ = world.xz;
+        // distant blades: flatten the dark-root/bright-tip gradient so sub-pixel blades don't sparkle
+        vFar = smoothstep(12.0, 50.0, camD);
         vec4 mvPosition = viewMatrix * vec4(world, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         // shadow lookup at the blade's root height so whole blades darken together
@@ -146,14 +153,15 @@ export function createGrass(count = 140000, radius = 78) {
       varying float vT;
       varying float vGust;
       varying vec2 vXZ;
+      varying float vFar;
       ${CLOUD_SHADOW_GLSL}
       void main(){
         // root sinks into the ground colour, tips catch the light
         vec3 base = vCol * 0.62;
         vec3 tip = mix(vCol * 1.22, vec3(0.86, 0.92, 0.55), 0.18);
-        vec3 col = mix(base, tip, smoothstep(0.0, 1.0, vT));
+        vec3 col = mix(base, tip, mix(smoothstep(0.0, 1.0, vT), 0.5, vFar * 0.8));
         // gust sheen: bent blades show their lighter backs
-        col = mix(col, col * 1.18 + vec3(0.04, 0.05, 0.0), vGust * vT * 0.6);
+        col = mix(col, col * 1.18 + vec3(0.04, 0.05, 0.0), vGust * mix(vT, 0.5, vFar) * 0.6);
         float sh = getShadowMask();
         vec3 amb = uSkyCol * 0.75;
         vec3 sunL = uSunColor * (0.55 + 0.25 * uSunI);
