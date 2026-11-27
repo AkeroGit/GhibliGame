@@ -178,6 +178,9 @@ function baseHeight(x: number, z: number): number {
 
 export const STREAM_BOX = [-44, 92, -6, 70]; // x0, x1, z0, z1 of the dale
 
+/** The cascade below the bridge, in metres downstream of the crossing, and its arc-parameter span (baked). */
+const CASCADE_START = 2.8, CASCADE_END = 7.6;
+export const CASCADE_T = [0, 0];
 /** Water level along the brook: follows the land cut ~2 m in, strictly downhill, meets the sea. */
 function bakeStreamLevels() {
   // The brook sits well below the land on BOTH sides: sample the natural ground across the dale floor.
@@ -205,6 +208,22 @@ function bakeStreamLevels() {
     const taper = 1 - smoothstep(WEIR_T, 0.62, t);
     FLOOR_LEVEL[i] = STREAM_LEVEL[i];
     STREAM_LEVEL[i] = Math.max(STREAM_LEVEL[i] + 0.45 * up - 0.75 * (1 - up) * taper, -0.06);
+  }
+  // Bridge reach: the brook runs calm under the footbridge and only tumbles down to the cove over a short
+  // rocky cascade a few metres below it, so the bridge stands on level banks, not on the lip of the drop.
+  {
+    let best = 1e9, tB = 0;
+    for (let i = 0; i < PATH.length / 2; i++) { const sn = streamNearest(PATH[i * 2], PATH[i * 2 + 1]); if (sn.d < best) { best = sn.d; tB = sn.t; } }
+    const orig = STREAM_LEVEL.slice();
+    const at = (s: number) => { const f = clamp(s / STREAM_LEN, 0, 1) * (STREAM_N - 1), i = Math.min(STREAM_N - 2, Math.floor(f)); return lerp(orig[i], orig[i + 1], f - i); };
+    const sB = tB * STREAM_LEN, s0 = sB - 7, s1 = sB + CASCADE_START, s2 = sB + CASCADE_END;
+    const L0 = at(s0), Lh = L0 - 0.14, Lend = at(s2);
+    for (let i = 0; i < STREAM_N; i++) {
+      const s = (i / (STREAM_N - 1)) * STREAM_LEN;
+      if (s >= s0 && s <= s1) STREAM_LEVEL[i] = lerp(L0, Lh, (s - s0) / (s1 - s0));
+      else if (s > s1 && s < s2) STREAM_LEVEL[i] = lerp(Lh, Lend, smoothstep(s1, s2, s));
+    }
+    CASCADE_T[0] = s1 / STREAM_LEN; CASCADE_T[1] = s2 / STREAM_LEN;
   }
   // water never runs uphill
   for (let i = 1; i < STREAM_N; i++) STREAM_LEVEL[i] = Math.max(-0.06, Math.min(STREAM_LEVEL[i], STREAM_LEVEL[i - 1] - 0.0015));

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { blob, merge, paint, place, tube } from '../lib/geo';
-import { GLSL_NOISE, mulberry32 } from '../lib/noise';
+import { GLSL_NOISE, mulberry32, smoothstep } from '../lib/noise';
 import { toon, globalUniforms, CLOUD_SHADOW_GLSL } from '../render/toon';
 import {
   heightAt, streamFrame, channelHalf, STREAM_LEN, WEIR_T, MILL, MILL_YAW, MILL_T, MILL_OFF,
-  BRIDGE, BRIDGE_DIR, BR_ABUT, walkSurfaces, streamNearest,
+  BRIDGE, BRIDGE_DIR, BR_ABUT, walkSurfaces, streamNearest, CASCADE_T,
 } from '../world/terrain';
 import type { PlaceLandmark } from './places';
 
@@ -25,6 +25,30 @@ function cyl(g: THREE.Object3D, r0: number, r1: number, h: number, mat: THREE.Ma
 }
 
 // ---------------------------------------------------------------- water
+/** Cascade below the bridge: the smooth baked drop becomes a few pools with a short spill at each lip. */
+export const CASC_STEPS = 4;
+const casc = (() => {
+  const s0 = CASCADE_T[0] * STREAM_LEN, s1 = CASCADE_T[1] * STREAM_LEN, L = (s1 - s0) / CASC_STEPS;
+  const lv = (s: number) => streamFrame(s / STREAM_LEN).level;
+  const lips = Array.from({ length: CASC_STEPS }, (_, k) => s0 + (k + 0.75) * L);
+  return {
+    lips,
+    /** water height: flat pools, each spilling over a 0.35 m lip to the next */
+    levelAt(s: number, smooth: number) {
+      if (s <= s0 || s >= s1 + 0.5) return smooth;
+      const k = Math.min(CASC_STEPS - 1, Math.floor((s - s0) / L));
+      const top = lv(s0 + k * L), bot = lv(s0 + (k + 1) * L), lip = lips[k];
+      return lerpN(top, bot, smoothstep(lip - 0.05, lip + 0.3, s));
+    },
+    foamAt(s: number) {
+      let f = 0;
+      for (const lip of lips) { const d = s - lip; if (d > 0.0) f = Math.max(f, Math.exp(-Math.max(0, d - 0.2) / 0.28) * 0.9); }
+      return s < s0 - 0.2 || s > s1 + 2.5 ? 0 : f;
+    },
+  };
+})();
+const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
+
 function createWater(): THREE.Mesh {
   const M = 300, K = 15, back = 3.5; // metres the ribbon starts behind the spring (terrain clips it round)
   const pos: number[] = [], flow: number[] = [], extra: number[] = [], idx: number[] = [];
@@ -38,18 +62,21 @@ function createWater(): THREE.Mesh {
     const x0 = f.x + f.tx * Math.min(0, s), z0 = f.z + f.tz * Math.min(0, s);
     const hw = channelHalf(t) + 0.9;
     const ahead = streamFrame(Math.min(1, t + 0.004)).level;
-    const fall = Math.max(0, (f.level - ahead) / (0.004 * STREAM_LEN));
+    const sAhead = s + 0.004 * STREAM_LEN;
+    const fall = Math.max(0, (casc.levelAt(s, f.level) - casc.levelAt(sAhead, ahead)) / (0.004 * STREAM_LEN));
     const sMill = MILL_T * STREAM_LEN;
     const foam = Math.exp(-Math.max(0, s - sWeir) / 2.2) * (s > sWeir - 0.3 ? 1 : 0) + Math.exp(-Math.max(0, s) / 1.4) * 0.5
-      + 0.8 * Math.exp(-(((s - sMill) / 1.6) ** 2));
+      + 0.8 * Math.exp(-(((s - sMill) / 1.6) ** 2))
+      // the cascade: white water just below each step lip, and a churned pool at the foot
+      + casc.foamAt(s);
     const fade = 1 - Math.max(0, Math.min(1, (t - 0.78) / 0.16));
     prevLevel = f.level;
     for (let k = 0; k < K; k++) {
       const a = -1 + (2 * k) / (K - 1);
       const x = x0 + f.nx * a * hw, z = z0 + f.nz * a * hw;
-      pos.push(x, f.level, z);
+      pos.push(x, casc.levelAt(s, f.level), z);
       flow.push(a * hw, s);
-      extra.push(f.level - heightAt(x, z), fall, foam, fade);
+      extra.push(casc.levelAt(s, f.level) - heightAt(x, z), fall, foam, fade);
     }
   }
   void prevLevel;
@@ -112,7 +139,8 @@ function createWater(): THREE.Mesh {
         // foam: a soft lip at the shore, churn below the weir and at the spring
         float lip = smoothstep(0.12, 0.03, depth) * smoothstep(-0.01, 0.03, depth);
         float churn = churnAmt * smoothstep(0.32, 0.62, kh_fbm(vec2(vFlow.x * 2.6, vFlow.y * 1.3 - uTime * 2.2)));
-        float sheet = smoothstep(0.25, 1.0, fall) * (0.55 + 0.45 * kh_noise(vec2(vFlow.x * 4.0, vFlow.y * 2.0 - uTime * 3.0)));
+        // falling water breaks up across the channel (tongues of white between darker glassy runs)
+        float sheet = smoothstep(0.25, 1.0, fall) * smoothstep(0.3, 0.62, kh_fbm(vec2(vFlow.x * 3.2, vFlow.y * 1.6 - uTime * 3.0)));
         float foam = clamp(lip * 0.45 * (0.55 + 0.45 * kh_noise(vW.xz * 3.0 + uTime * 0.4)) + churn + sheet * 0.7, 0.0, 0.92);
         col = mix(col, vec3(0.95, 0.98, 1.0), foam);
         col = applyCloudShadow(col, vW.xz);
@@ -725,6 +753,34 @@ function createBanks(): THREE.Group {
     }
   }
   reeds.count = n; reeds.castShadow = true; reeds.receiveShadow = true; g.add(reeds);
+  // the cascade below the bridge: the brook tumbles down a short rocky run to the cove.
+  // Step stones across the channel at each drop, big bedded boulders along both banks.
+  {
+    const cr = mulberry32(303), rockA = mw('#bfb196', 0.3), rockB = mw('#a29479', 0.3), rockM = mw('#8f9a72', 0.3);
+
+    const [c0, c1] = CASCADE_T;
+    const lipTs = [...casc.lips.map((sl) => sl / STREAM_LEN), c1 + 0.4 / STREAM_LEN];
+    for (let k = 0; k < lipTs.length; k++) {
+      const t = lipTs[k], f = streamFrame(t), cw = channelHalf(t); void c0;
+      // a broken sill of stones across the channel: water spills between them
+      for (let j = 0; j < 4; j++) {
+        if (cr() < 0.35) continue;
+        const a = -0.85 + j * 0.55 + (cr() - 0.5) * 0.25, r = 0.16 + cr() * 0.12;
+        const x = f.x + f.nx * a * cw, z = f.z + f.nz * a * cw;
+        const rk = new THREE.Mesh(blob(r, 1, 0.3, 300 + k * 7 + j, 0.8), cr() < 0.5 ? rockA : rockB);
+        const top = casc.levelAt(t * STREAM_LEN - 0.12, f.level);
+        rk.position.set(x, top - r * 0.5, z); rk.rotation.y = cr() * 6.28;
+ rk.castShadow = rk.receiveShadow = true; g.add(rk);
+      }
+      // bank boulders bedded into the slope on each side, half in the water
+      for (const side of [-1, 1]) {
+        const r = 0.35 + cr() * 0.25, a = side * (cw + 0.1 + cr() * 0.3);
+        const x = f.x + f.nx * a, z = f.z + f.nz * a;
+        const rk = new THREE.Mesh(blob(r, 1, 0.3, 340 + k * 5 + (side > 0 ? 1 : 0), 0.7), cr() < 0.3 ? rockM : (cr() < 0.5 ? rockA : rockB));
+        rk.position.set(x, Math.max(casc.levelAt(t * STREAM_LEN, f.level), heightAt(x, z) - r * 0.45) - r * 0.15, z); rk.rotation.y = cr() * 6.28; rk.castShadow = rk.receiveShadow = true; g.add(rk);
+      }
+    }
+  }
   return g;
 }
 
